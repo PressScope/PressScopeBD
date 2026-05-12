@@ -1,0 +1,3 @@
+{
+  "extends": "@PressScopeBd/config/tsconfig.base.json"
+}
