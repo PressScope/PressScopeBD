@@ -11,38 +11,29 @@ jobs:
     runs-on: windows-latest
 
     steps:
-      # Checkout repo
       - name: Checkout
         uses: actions/checkout@v4
 
-      # Setup pnpm
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
-        with:
-          version: 10
 
-      # Setup Node
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
           node-version: 20
           cache: pnpm
 
-      # Setup Rust
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
 
-      # Install dependencies
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      # Build Tauri Windows app
       - name: Build Windows app
         run: |
           cd apps/web
           pnpm run desktop:build
 
-      # Upload artifacts
       - name: Upload build artifacts
         uses: actions/upload-artifact@v4
         with:
