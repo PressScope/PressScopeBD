@@ -7,21 +7,8 @@ on:
       - main
 
 jobs:
-  build:
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - platform: windows-latest
-            args: ""
-
-          - platform: macos-latest
-            args: ""
-
-          - platform: ubuntu-22.04
-            args: ""
-
-    runs-on: ${{ matrix.platform }}
+  build-windows:
+    runs-on: blacksmith-8vcpu-windows-2025
 
     steps:
       # Checkout
