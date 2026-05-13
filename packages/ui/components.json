@@ -11,14 +11,16 @@
     "prefix": ""
   },
   "iconLibrary": "lucide",
+  "menuColor": "default",
+  "menuAccent": "subtle",
   "aliases": {
     "components": "@PressScopeBd/ui/components",
     "utils": "@PressScopeBd/ui/lib/utils",
-    "hooks": "@PressScopeBd/ui/hooks",
+    "ui": "@PressScopeBd/ui/components",
     "lib": "@PressScopeBd/ui/lib",
-    "ui": "@PressScopeBd/ui/components"
+    "hooks": "@PressScopeBd/ui/hooks"
   },
-  "menuColor": "default",
-  "menuAccent": "subtle",
-  "registries": {}
+  "registries": {
+    "@animate-ui": "https://animate-ui.com/r/{name}.json"
+  }
 }
