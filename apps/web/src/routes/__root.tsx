@@ -1,16 +1,33 @@
 import { Toaster } from "@PressScopeBd/ui/components/sonner";
-import { HeadContent, Outlet, createRootRouteWithContext } from "@tanstack/react-router";
+import {
+  HeadContent,
+  Outlet,
+  createRootRouteWithContext,
+  redirect,
+} from "@tanstack/react-router";
 import { TanStackRouterDevtools } from "@tanstack/react-router-devtools";
 
 import Header from "@/components/header";
 import { ThemeProvider } from "@/components/theme-provider";
 
 import "../index.css";
-
+import { authClient } from "@/lib/auth-client";
 export interface RouterAppContext {}
 
 export const Route = createRootRouteWithContext<RouterAppContext>()({
   component: RootComponent,
+  beforeLoad: async () => {
+    const session = await authClient.getSession();
+    if (window.location.pathname === "/login") {
+      console.log("Already on login page");
+    } else if (!session.data) {
+      redirect({
+        to: "/login",
+        throw: true,
+      });
+    }
+    return { session };
+  },
   head: () => ({
     meta: [
       {
