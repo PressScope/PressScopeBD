@@ -1,6 +1,5 @@
 import { Link } from "@tanstack/react-router";
-
-import { ModeToggle } from "./mode-toggle";
+import { ThemeTogglerButton } from "@PressScopeBd/ui/components/animate-ui/components/buttons/theme-toggler";
 import UserMenu from "./user-menu";
 
 export default function Header() {
@@ -19,7 +18,7 @@ export default function Header() {
           })}
         </nav>
         <div className="flex items-center gap-2">
-          <ModeToggle />
+          <ThemeTogglerButton direction="btt" modes={["light", "dark"]} />
           <UserMenu />
         </div>
       </div>

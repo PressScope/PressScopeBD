@@ -1,5 +1,5 @@
-import { authClient } from "@/lib/auth-client";
 import { createLazyFileRoute, redirect } from "@tanstack/react-router";
+import { useHotkey } from "@tanstack/react-hotkeys";
 
 export const Route = createLazyFileRoute("/")({
   component: RouteComponent,
@@ -7,7 +7,9 @@ export const Route = createLazyFileRoute("/")({
 
 function RouteComponent() {
   const { session } = Route.useRouteContext();
-
+  useHotkey("Mod+K", () => {
+    console.log("Redirecting to dashboard");
+  });
   return (
     <div>
       <h1>Dashboard</h1>
