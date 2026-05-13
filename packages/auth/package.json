@@ -1,0 +1,24 @@
+{
+  "name": "@PressScopeBd/auth",
+  "type": "module",
+  "exports": {
+    ".": {
+      "default": "./src/index.ts"
+    },
+    "./*": {
+      "default": "./src/*.ts"
+    }
+  },
+  "scripts": {},
+  "dependencies": {
+    "@PressScopeBd/db": "workspace:*",
+    "@PressScopeBd/env": "workspace:*",
+    "better-auth": "catalog:",
+    "dotenv": "catalog:",
+    "zod": "catalog:"
+  },
+  "devDependencies": {
+    "@PressScopeBd/config": "workspace:*",
+    "typescript": "catalog:"
+  }
+}
