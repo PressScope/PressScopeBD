@@ -1,4 +1,4 @@
-import * as React from "react"
+import * as React from "react";
 import {
   Sidebar,
   SidebarContent,
@@ -10,14 +10,14 @@ import {
   SidebarMenu,
   SidebarMenuItem,
   SidebarMenuButton,
-} from "@PressScopeBd/ui/components/sidebar"
+} from "@PressScopeBd/ui/components/sidebar";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from "@PressScopeBd/ui/components/dropdown-menu"
+} from "@PressScopeBd/ui/components/dropdown-menu";
 import {
   Home,
   Settings,
@@ -26,11 +26,12 @@ import {
   Calendar,
   BarChart3,
   HelpCircle,
-  ChevronUp
-} from "lucide-react"
+  ChevronUp,
+} from "lucide-react";
+import { NavUser } from "./nav-user";
 
 export function AppSidebar() {
-  const [activeItem, setActiveItem] = React.useState("Home")
+  const [activeItem, setActiveItem] = React.useState("Home");
 
   const mainNavItems = [
     { id: "Home", label: "Home", icon: Home },
@@ -38,15 +39,15 @@ export function AppSidebar() {
     { id: "Projects", label: "Projects", icon: FileText },
     { id: "Team", label: "Team", icon: Users },
     { id: "Calendar", label: "Calendar", icon: Calendar },
-  ]
+  ];
 
   const settingsItems = [
     { id: "Settings", label: "Settings", icon: Settings },
     { id: "Help", label: "Help & Support", icon: HelpCircle },
-  ]
+  ];
 
   return (
-    <Sidebar>
+    <Sidebar collapsible="icon">
       <SidebarHeader>
         <SidebarGroup>
           <SidebarGroupContent className="flex flex-row items-center justify-between">
@@ -61,25 +62,6 @@ export function AppSidebar() {
                 </span>
               </div>
             </div>
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <button className="inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 hover:bg-accent hover:text-accent-foreground h-9 w-9">
-                  <span className="sr-only">Toggle user menu</span>
-                  <div className="flex h-6 w-6 items-center justify-center rounded-full bg-sidebar-primary text-sidebar-primary-foreground text-xs font-medium">
-                    JD
-                  </div>
-                </button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
-                <div className="px-2 py-1.5 text-sm font-semibold">My Account</div>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem>Profile</DropdownMenuItem>
-                <DropdownMenuItem>Billing</DropdownMenuItem>
-                <DropdownMenuItem>Settings</DropdownMenuItem>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem>Log out</DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
           </SidebarGroupContent>
         </SidebarGroup>
       </SidebarHeader>
@@ -88,7 +70,7 @@ export function AppSidebar() {
           <SidebarGroupContent>
             <SidebarMenu>
               {mainNavItems.map((item) => {
-                const Icon = item.icon
+                const Icon = item.icon;
                 return (
                   <SidebarMenuItem key={item.id}>
                     <SidebarMenuButton
@@ -100,7 +82,7 @@ export function AppSidebar() {
                       <span>{item.label}</span>
                     </SidebarMenuButton>
                   </SidebarMenuItem>
-                )
+                );
               })}
             </SidebarMenu>
           </SidebarGroupContent>
@@ -109,7 +91,7 @@ export function AppSidebar() {
           <SidebarGroupLabel className="flex items-center justify-between">
             <span>Settings</span>
             <DropdownMenu>
-              <DropdownMenuTrigger asChild>
+              <DropdownMenuTrigger>
                 <button className="flex items-center justify-center rounded-sm hover:bg-sidebar-accent h-5 w-5">
                   <ChevronUp className="h-3 w-3" />
                   <span className="sr-only">Toggle settings</span>
@@ -128,7 +110,7 @@ export function AppSidebar() {
           <SidebarGroupContent>
             <SidebarMenu>
               {settingsItems.map((item) => {
-                const Icon = item.icon
+                const Icon = item.icon;
                 return (
                   <SidebarMenuItem key={item.id}>
                     <SidebarMenuButton
@@ -140,24 +122,15 @@ export function AppSidebar() {
                       <span>{item.label}</span>
                     </SidebarMenuButton>
                   </SidebarMenuItem>
-                )
+                );
               })}
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
       </SidebarContent>
       <SidebarFooter>
-        <SidebarGroup>
-          <SidebarGroupContent>
-            <div className="px-2 py-2">
-              <div className="flex items-center gap-2 px-2 py-1.5 text-xs text-muted-foreground">
-                <span>© 2026 PressScopeBd</span>
-                <span className="ml-auto">v1.0.0</span>
-              </div>
-            </div>
-          </SidebarGroupContent>
-        </SidebarGroup>
+        <NavUser />
       </SidebarFooter>
     </Sidebar>
-  )
+  );
 }
