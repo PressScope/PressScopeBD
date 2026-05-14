@@ -22,7 +22,7 @@ jobs:
             runner: blacksmith-4vcpu-windows-2025
 
           - name: macos
-            runner: blacksmith-4vcpu-macos-26
+            runner: blacksmith-6vcpu-macos-26
 
           - name: linux
             runner: blacksmith-4vcpu-ubuntu-2404
