@@ -9,7 +9,10 @@ import { TanStackRouterDevtools } from "@tanstack/react-router-devtools";
 
 import Header from "@/components/header";
 import { ThemeProvider } from "@/components/theme-provider";
-import { SidebarProvider, SidebarTrigger } from "@PressScopeBd/ui/components/sidebar";
+import {
+  SidebarProvider,
+  SidebarTrigger,
+} from "@PressScopeBd/ui/components/sidebar";
 import { AppSidebar } from "@/components/app-sidebar";
 
 import "../index.css";
@@ -60,11 +63,11 @@ function RootComponent() {
         storageKey="vite-ui-theme"
       >
         <SidebarProvider>
-          <div className="grid grid-cols-[auto_1fr] h-svh">
+          <div className="w-full h-screen flex">
             <AppSidebar />
-            <div className="flex flex-col">
+            <div className="flex-1 flex flex-col">
               <Header />
-              <main className="flex-1 px-4 py-6">
+              <main className="flex-1 px-4 py-6 w-full">
                 <Outlet />
               </main>
             </div>
