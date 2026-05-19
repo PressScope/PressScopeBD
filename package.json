@@ -11,6 +11,7 @@
     "build": "turbo build",
     "check-types": "turbo check-types",
     "dev:web": "turbo -F web dev",
+    "build:web": "turbo -F web build",
     "dev:server": "turbo -F server dev",
     "db:push": "turbo -F @PressScopeBd/db db:push",
     "db:studio": "turbo -F @PressScopeBd/db db:studio",
@@ -20,6 +21,8 @@
     "db:watch": "turbo -F @PressScopeBd/db db:watch",
     "db:stop": "turbo -F @PressScopeBd/db db:stop",
     "db:down": "turbo -F @PressScopeBd/db db:down",
+    "build:app": "cd apps/web && pnpm run desktop:build   ",
+    "dev:app": "cd apps/web && pnpm run desktop:dev",
     "check": "oxlint && oxfmt --write"
   },
   "dependencies": {
