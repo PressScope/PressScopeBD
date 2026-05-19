@@ -53,6 +53,11 @@ export const Route = createRootRouteWithContext<RouterAppContext>()({
 });
 
 function RootComponent() {
+  const { session } = Route.useRouteContext();
+
+  // Hide sidebar on login page
+  const isLoginPage = window.location.pathname === "/login";
+
   return (
     <>
       <HeadContent />
@@ -62,17 +67,26 @@ function RootComponent() {
         disableTransitionOnChange
         storageKey="vite-ui-theme"
       >
-        <SidebarProvider>
-          <div className="w-full h-screen flex">
-            <AppSidebar />
-            <div className="flex-1 flex flex-col">
-              <Header />
-              <main className="flex-1 px-4 py-6 w-full">
-                <Outlet />
-              </main>
+        {!isLoginPage && (
+          <SidebarProvider>
+            <div className="w-full h-screen flex">
+              <AppSidebar />
+              <div className="flex-1 flex flex-col">
+                <Header />
+                <main className="flex-1 px-4 py-6 w-full">
+                  <Outlet />
+                </main>
+              </div>
             </div>
+          </SidebarProvider>
+        )}
+        {isLoginPage ? (
+          <div className="w-full h-screen flex flex-col">
+            <main className="flex-1 px-4 py-6 w-full ">
+              <Outlet />
+            </main>
           </div>
-        </SidebarProvider>
+        ) : null}
         <Toaster richColors />
       </ThemeProvider>
       <TanStackRouterDevtools position="bottom-left" />
