@@ -9,6 +9,11 @@ import { TanStackRouterDevtools } from "@tanstack/react-router-devtools";
 
 import Header from "@/components/header";
 import { ThemeProvider } from "@/components/theme-provider";
+import {
+  SidebarProvider,
+  SidebarTrigger,
+} from "@PressScopeBd/ui/components/sidebar";
+import { AppSidebar } from "@/components/app-sidebar";
 
 import "../index.css";
 import { authClient } from "@/lib/auth-client";
@@ -48,6 +53,11 @@ export const Route = createRootRouteWithContext<RouterAppContext>()({
 });
 
 function RootComponent() {
+  const { session } = Route.useRouteContext();
+
+  // Hide sidebar on login page
+  const isLoginPage = window.location.pathname === "/login";
+
   return (
     <>
       <HeadContent />
@@ -57,13 +67,29 @@ function RootComponent() {
         disableTransitionOnChange
         storageKey="vite-ui-theme"
       >
-        <div className="grid grid-rows-[auto_1fr] h-svh">
-          <Header />
-          <Outlet />
-        </div>
+        {!isLoginPage && (
+          <SidebarProvider>
+            <div className="w-full h-screen flex">
+              <AppSidebar />
+              <div className="flex-1 flex flex-col">
+                <Header />
+                <main className="flex-1 px-4 py-6 w-full">
+                  <Outlet />
+                </main>
+              </div>
+            </div>
+          </SidebarProvider>
+        )}
+        {isLoginPage ? (
+          <div className="w-full h-screen flex flex-col">
+            <main className="flex-1 px-4 py-6 w-full ">
+              <Outlet />
+            </main>
+          </div>
+        ) : null}
         <Toaster richColors />
       </ThemeProvider>
-      <TanStackRouterDevtools position="bottom-left" />
+      <TanStackRouterDevtools position="bottom-right" />
     </>
   );
 }
