@@ -82,6 +82,7 @@ function RootComponent() {
         )}
         {isLoginPage ? (
           <div className="w-full h-screen flex flex-col">
+            <Header />
             <main className="flex-1 px-4 py-6 w-full ">
               <Outlet />
             </main>
