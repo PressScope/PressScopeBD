@@ -40,9 +40,7 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Install Playwright browsers and Linux deps
-        uses: microsoft/playwright-github-action@v1
-        with:
-          browsers: chromium, firefox, webkit
+        run: npx playwright install --with-deps
 
       - name: Run Playwright e2e tests
         run: pnpm --filter web test:e2e
