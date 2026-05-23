@@ -73,9 +73,7 @@ jobs:
       - name: Install system fonts for WebKit
         run: sudo apt-get install -y fonts-noto-color-emoji
 
-      - name: Build workspace packages
-        run: pnpm run build
-
+      # Run the backend server via tsx (uses workspace TS source directly — no build step needed)
       - name: Start backend server (port 3000)
         working-directory: apps/server
         env:
@@ -101,8 +99,7 @@ jobs:
           exit 1
 
       - name: Run Playwright e2e tests
-        # Playwright's webServer hook starts the web dev server (port 3001)
-        # and tears it down when this step finishes
+        # Playwright's webServer hook starts the Vite dev server (port 3001) and tears it down when done
         run: pnpm --filter web test:e2e
 
       - name: Upload Playwright HTML report
