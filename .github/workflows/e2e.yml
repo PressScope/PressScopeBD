@@ -21,6 +21,20 @@ jobs:
   e2e:
     runs-on: blacksmith-16vcpu-ubuntu-2404
 
+    services:
+      db:
+        image: postgres:18
+        env:
+          POSTGRES_DB: PressScopeBd
+          POSTGRES_PASSWORD: password
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 1s
+          --health-timeout 5s
+          --health-retries 15
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -36,6 +50,19 @@ jobs:
           node-version: 20
           cache: pnpm
 
+      - name: Wait for Postgres to be ready
+        run: |
+          for i in $(seq 1 60); do
+            if pg_isready -h localhost -p 5432 -U postgres; then
+              echo "Postgres is ready"
+              exit 0
+            fi
+            echo "Waiting for Postgres... ($i/60)"
+            sleep 1
+          done
+          echo "Postgres did not become ready in time"
+          exit 1
+
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
@@ -43,14 +70,40 @@ jobs:
         working-directory: apps/web
         run: npx playwright install --with-deps
 
-      - name: Install system fonts
+      - name: Install system fonts for WebKit
         run: sudo apt-get install -y fonts-noto-color-emoji
 
-      - name: Run Playwright e2e tests
-        working-directory: apps/web
-        run: pnpm test:e2e
+      - name: Build workspace packages
+        run: pnpm run build
+
+      - name: Start backend server (port 3000)
+        working-directory: apps/server
         env:
-          PORT: 3001
+          PORT: 3000
+          DATABASE_URL: postgresql://postgres:password@localhost:5432/PressScopeBd
+          BETTER_AUTH_SECRET: dtLn7RrhcQnsc3Tx7XXejBwyxJmbxRur
+          BETTER_AUTH_URL: http://localhost:3000
+          CORS_ORIGIN: http://localhost:3001
+          NODE_ENV: development
+        run: |
+          nohup pnpm exec tsx src/index.ts > /tmp/server.log 2>&1 &
+          disown
+          for i in $(seq 1 30); do
+            if curl -sf http://localhost:3000 > /dev/null 2>&1; then
+              echo "Backend server is ready"
+              exit 0
+            fi
+            echo "Waiting for backend server... ($i/30)"
+            sleep 1
+          done
+          echo "Backend did not start in time"
+          cat /tmp/server.log
+          exit 1
+
+      - name: Run Playwright e2e tests
+        # Playwright's webServer hook starts the web dev server (port 3001)
+        # and tears it down when this step finishes
+        run: pnpm --filter web test:e2e
 
       - name: Upload Playwright HTML report
         if: always()
