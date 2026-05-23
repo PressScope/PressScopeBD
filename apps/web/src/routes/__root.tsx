@@ -16,7 +16,10 @@ import {
 import { AppSidebar } from "@/components/app-sidebar";
 
 import "../index.css";
-import { authClient } from "@/lib/auth-client";
+// Load auth client lazily so that a failed fetch during session check
+// cannot crash the entire app hydration in CI / when the backend is down.
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+const { authClient } = await import("@/lib/auth-client");
 export interface RouterAppContext {}
 
 export const Route = createRootRouteWithContext<RouterAppContext>()({
