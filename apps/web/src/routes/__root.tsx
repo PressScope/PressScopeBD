@@ -75,12 +75,7 @@ function RootComponent() {
   return (
     <>
       <HeadContent />
-      <ThemeProvider
-        attribute="class"
-        defaultTheme="dark"
-        disableTransitionOnChange
-        storageKey="vite-ui-theme"
-      >
+      <ThemeProvider attribute="class" defaultTheme="dark">
         {!isLoginPage && (
           <SidebarProvider>
             <div className="w-full h-screen flex">
