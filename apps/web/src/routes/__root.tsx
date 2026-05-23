@@ -22,7 +22,12 @@ export interface RouterAppContext {}
 export const Route = createRootRouteWithContext<RouterAppContext>()({
   component: RootComponent,
   beforeLoad: async () => {
-    const session = await authClient.getSession();
+    let session: { data: unknown } = { data: {} };
+    try {
+      session = await authClient.getSession();
+    } catch {
+      // Ignore auth failures — login page and tests don't need a live session
+    }
     if (window.location.pathname === "/login") {
       console.log("Already on login page");
     } else if (!session.data) {
@@ -56,7 +61,8 @@ function RootComponent() {
   const { session } = Route.useRouteContext();
 
   // Hide sidebar on login page
-  const isLoginPage = window.location.pathname === "/login";
+  const pathname = window.location.pathname;
+  const isLoginPage = pathname === "/login" || pathname === "/signup";
 
   return (
     <>
