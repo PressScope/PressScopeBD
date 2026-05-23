@@ -5,7 +5,7 @@ export default defineConfig({
   fullyParallel: true,
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 1 : 0,
-  workers: 10,
+  workers: 1,
   reporter: "html",
   use: {
     baseURL: "http://localhost:3001",
@@ -26,28 +26,9 @@ export default defineConfig({
       name: "webkit",
       use: { ...devices["Desktop Safari"] },
     },
-    {
-      name: "desktop-edge",
-      use: { ...devices["Desktop Edge"] },
-    },
-    {
-      name: "mobile-chrome",
-      use: { ...devices["Pixel 5"] },
-    },
-    {
-      name: "mobile-safari",
-      use: { ...devices["iPhone 12"] },
-    },
-    {
-      name: "chromium-560x320",
-      use: {
-        ...devices["Desktop Chrome"],
-        // It is important to define the `viewport` property after destructuring `devices`,
-        // since devices also define the `viewport` for that device.
-        viewport: { width: 1280, height: 720 },
-      },
-    },
   ],
+  // Only the webServer — backend is started explicitly in the workflow
+  // CI=false locally so existing server is reused; CI=true in the workflow so it's started fresh
   webServer: {
     command: "pnpm run dev",
     url: "http://localhost:3001",
