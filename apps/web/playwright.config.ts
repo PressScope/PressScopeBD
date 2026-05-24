@@ -29,12 +29,4 @@ export default defineConfig({
   ],
   // Only the webServer — backend is started explicitly in the workflow
   // CI=false locally so existing server is reused; CI=true in the workflow so it's started fresh
-  webServer: {
-    command: "pnpm run dev",
-    url: "http://localhost:3001",
-    reuseExistingServer: !process.env.CI,
-    timeout: 120_000,
-    stdout: "pipe",
-    stderr: "pipe",
-  },
 });
