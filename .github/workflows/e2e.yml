@@ -7,6 +7,7 @@ on:
         description: "Branch to test"
         required: false
         default: "main"
+
   push:
     branches:
       - main
@@ -23,14 +24,15 @@ jobs:
         image: postgres:18
         env:
           POSTGRES_DB: PressScopeBd
+          POSTGRES_USER: postgres
           POSTGRES_PASSWORD: password
         ports:
           - 5432:5432
         options: >-
           --health-cmd "pg_isready -U postgres"
-          --health-interval 1s
+          --health-interval 2s
           --health-timeout 5s
-          --health-retries 15
+          --health-retries 20
 
     steps:
       - name: Checkout repository
@@ -47,31 +49,13 @@ jobs:
           node-version: 20
           cache: pnpm
 
-      - name: Wait for Postgres to be ready
-        run: |
-          for i in $(seq 1 60); do
-            if pg_isready -h localhost -p 5432 -U postgres; then
-              echo "Postgres is ready"
-              exit 0
-            fi
-            echo "Waiting for Postgres... ($i/60)"
-            sleep 1
-          done
-          echo "Postgres did not become ready in time"
-          exit 1
-
       - name: Install dependencies
-        run: npm install -g pnpm && pnpm install
+        run: pnpm install --frozen-lockfile
 
-      - name: Install Playwright browsers and Linux deps
-        working-directory: apps/web
-        run: pnpm exec playwright install --with-deps
-
-      - name: Install system fonts for WebKit
-        run: sudo apt-get install -y fonts-noto-color-emoji
-
-      # Run the backend server via tsx (uses workspace TS source directly — no build step needed)
-      - name: Start backend server (port 3000)
+      # -------------------------
+      # BACKEND START
+      # -------------------------
+      - name: Start backend server
         working-directory: apps/server
         env:
           PORT: 3000
@@ -81,28 +65,80 @@ jobs:
           CORS_ORIGIN: http://localhost:3001
           NODE_ENV: development
         run: |
-          nohup pnpm exec tsx src/index.ts > /tmp/server.log 2>&1 &
-          disown
-          for i in $(seq 1 30); do
-            if curl -sf http://localhost:3000 > /dev/null 2>&1; then
-              echo "Backend server is ready"
+          nohup pnpm exec tsx src/index.ts > /tmp/backend.log 2>&1 &
+          echo $! > /tmp/backend.pid
+
+          for i in $(seq 1 60); do
+            if curl -sf http://localhost:3000 > /dev/null; then
+              echo "Backend ready"
               exit 0
             fi
-            echo "Waiting for backend server... ($i/30)"
+            echo "Waiting for backend... ($i/60)"
             sleep 1
           done
-          echo "Backend did not start in time"
-          cat /tmp/server.log
+
+          echo "Backend failed to start"
+          cat /tmp/backend.log
           exit 1
 
-      - name: Run Playwright e2e tests
-        # Playwright's webServer hook starts the Vite dev server (port 3001) and tears it down when done
-        run: pnpm --filter web test:e2e
+      # -------------------------
+      # FRONTEND START
+      # -------------------------
+      - name: Start frontend (Vite)
+        working-directory: apps/web
+        env:
+          PORT: 3001
+        run: |
+          nohup pnpm dev > /tmp/frontend.log 2>&1 &
+          echo $! > /tmp/frontend.pid
 
-      - name: Upload Playwright HTML report
+          for i in $(seq 1 60); do
+            if curl -sf http://localhost:3001 > /dev/null; then
+              echo "Frontend ready"
+              exit 0
+            fi
+            echo "Waiting for frontend... ($i/60)"
+            sleep 1
+          done
+
+          echo "Frontend failed to start"
+          cat /tmp/frontend.log
+          exit 1
+
+      # -------------------------
+      # PLAYWRIGHT
+      # -------------------------
+      - name: Install Playwright browsers
+        working-directory: apps/web
+        run: pnpm exec playwright install --with-deps
+
+      - name: Run Playwright E2E tests
+        working-directory: apps/web
+        env:
+          BASE_URL: http://localhost:3001
+        run: pnpm test:e2e
+
+      # -------------------------
+      # ARTIFACTS
+      # -------------------------
+      - name: Upload Playwright report
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: playwright-report
           path: apps/web/playwright-report
           retention-days: 14
+
+      - name: Upload backend logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: backend-log
+          path: /tmp/backend.log
+
+      - name: Upload frontend logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: frontend-log
+          path: /tmp/frontend.log
