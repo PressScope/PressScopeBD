@@ -75,7 +75,7 @@ function RootComponent() {
   return (
     <>
       <HeadContent />
-      <ThemeProvider attribute="class" defaultTheme="dark">
+      <ThemeProvider attribute="class" defaultTheme="dark" enableSystem={false}>
         {!isLoginPage && (
           <SidebarProvider>
             <div className="w-full h-screen flex">

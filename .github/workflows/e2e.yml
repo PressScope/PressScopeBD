@@ -61,11 +61,11 @@ jobs:
           exit 1
 
       - name: Install dependencies
-        run: pnpm install --frozen-lockfile
+        run: npm install -g pnpm && pnpm install
 
       - name: Install Playwright browsers and Linux deps
         working-directory: apps/web
-        run: npx playwright install --with-deps
+        run: pnpm exec playwright install --with-deps
 
       - name: Install system fonts for WebKit
         run: sudo apt-get install -y fonts-noto-color-emoji

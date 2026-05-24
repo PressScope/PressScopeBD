@@ -1,56 +1,30 @@
-import { expect, test } from "@playwright/test";
+// data-slot = "theme-toggler-button"
 
-test("theme toggler switches color-scheme", async ({ page }) => {
-  await page.goto("/login", {
-    waitUntil: "networkidle",
-    timeout: 60_000,
-  });
+import { test, expect } from "@playwright/test";
 
-  await page.waitForTimeout(1000);
+test("has theme toggler button", async ({ page }) => {
+  await page.goto("/");
 
-  await page.screenshot({
-    path: "test-results/theme-s0-clean.png",
-  });
+  await expect(
+    page.locator("button[data-slot='theme-toggler-button']"),
+  ).toBeVisible();
+});
+test("toggles theme on click", async ({ page }) => {
+  await page.goto("/");
 
-  const button = page.locator('[data-slot="theme-toggler-button"]');
+  const themeToggler = page.locator("button[data-slot='theme-toggler-button']");
+  const html = page.locator("html");
 
-  const getTheme = async () =>
-    page.evaluate(() => {
-      const root = document.documentElement;
+  await expect(themeToggler).toBeVisible();
 
-      if (root.classList.contains("dark")) return "dark";
-      if (root.classList.contains("light")) return "light";
+  await expect(html).toHaveClass(/light|dark/);
 
-      return window.matchMedia("(prefers-color-scheme: dark)").matches
-        ? "dark"
-        : "light";
-    });
+  const initial = await html.getAttribute("class");
+  const initialTheme = initial?.includes("dark") ? "dark" : "light";
+  const nextTheme = initialTheme === "dark" ? "light" : "dark";
 
-  const initial = await getTheme();
-
-  console.log("Initial color-scheme:", initial);
-
-  // First toggle
-  await button.click();
-  await page.waitForTimeout(2000);
-
-  await page.screenshot({
-    path: "test-results/theme-s1-after-1st-click.png",
-  });
-
-  const after1 = await getTheme();
-
-  expect(after1).not.toBe(initial);
-
-  // Second toggle
-  await button.click();
-  await page.waitForTimeout(2000);
-
-  await page.screenshot({
-    path: "test-results/theme-s2-after-2nd-click.png",
-  });
-
-  const after2 = await getTheme();
-
-  expect(after2).toBe(initial);
+  await themeToggler.click();
+  await expect(html).toHaveClass(new RegExp(nextTheme), { timeout: 5000 });
+  await themeToggler.click();
+  await expect(html).toHaveClass(new RegExp(initialTheme), { timeout: 5000 });
 });
