@@ -95,8 +95,6 @@ jobs:
       # -------------------------
       - name: Run Playwright E2E tests
         working-directory: apps/web
-        env:
-          CI: true
         run: pnpm test:e2e
 
       # -------------------------
