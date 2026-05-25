@@ -3,14 +3,14 @@
 import { test, expect } from "@playwright/test";
 
 test("has theme toggler button", async ({ page }) => {
-  await page.goto("/");
+  await page.goto("/login");
 
   await expect(
     page.locator("button[data-slot='theme-toggler-button']"),
   ).toBeVisible();
 });
 test("toggles theme on click", async ({ page }) => {
-  await page.goto("/");
+  await page.goto("/login");
 
   const themeToggler = page.locator("button[data-slot='theme-toggler-button']");
   const html = page.locator("html");
