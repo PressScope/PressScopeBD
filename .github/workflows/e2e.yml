@@ -7,6 +7,7 @@ on:
         description: "Branch to test"
         required: false
         default: "main"
+
   push:
     branches:
       - main
@@ -14,12 +15,24 @@ on:
 permissions:
   contents: read
 
-env:
-  CI: true
-
 jobs:
   e2e:
     runs-on: blacksmith-16vcpu-ubuntu-2404
+
+    services:
+      db:
+        image: postgres:18
+        env:
+          POSTGRES_DB: PressScopeBd
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: password
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 2s
+          --health-timeout 5s
+          --health-retries 20
 
     steps:
       - name: Checkout repository
@@ -39,20 +52,73 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Install Playwright browsers and Linux deps
-        uses: microsoft/playwright-github-action@v1
-        with:
-          browsers: chromium, firefox, webkit
-
-      - name: Run Playwright e2e tests
-        run: pnpm --filter web test:e2e
+      # -------------------------
+      # DATABASE MIGRATIONS
+      # -------------------------
+      - name: Run database migrations
+        working-directory: apps/server
         env:
-          PORT: 3001
+          DATABASE_URL: postgresql://postgres:password@localhost:5432/PressScopeBd
+        run: pnpm --filter db db:push
 
-      - name: Upload Playwright HTML report
+      # -------------------------
+      # PLAYWRIGHT BROWSERS
+      # -------------------------
+      - name: Install Playwright browsers
+        working-directory: apps/web
+        run: pnpm exec playwright install --with-deps
+
+      # -------------------------
+      # BACKEND START
+      # -------------------------
+      - name: Start backend server
+        working-directory: apps/server
+        env:
+          PORT: 3000
+          DATABASE_URL: postgresql://postgres:password@localhost:5432/PressScopeBd
+          BETTER_AUTH_SECRET: dtLn7RrhcQnsc3Tx7XXejBwyxJmbxRur
+          BETTER_AUTH_URL: http://localhost:3000
+          CORS_ORIGIN: http://localhost:3001
+          NODE_ENV: development
+        run: |
+          nohup pnpm exec tsx src/index.ts > /tmp/backend.log 2>&1 &
+          echo $! > /tmp/backend.pid
+
+          for i in $(seq 1 60); do
+            if curl -sf http://127.0.0.1:3000 > /dev/null; then
+              echo "Backend ready"
+              exit 0
+            fi
+            echo "Waiting for backend... ($i/60)"
+            sleep 1
+          done
+
+          echo "Backend failed to start"
+          cat /tmp/backend.log
+          exit 1
+
+      # -------------------------
+      # PLAYWRIGHT TESTS
+      # Frontend is started automatically
+      # by playwright webServer config
+      # -------------------------
+      - name: Run Playwright E2E tests
+        run: pnpm --filter web test:e2e
+
+      # -------------------------
+      # ARTIFACTS
+      # -------------------------
+      - name: Upload Playwright report
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: playwright-report
           path: apps/web/playwright-report
           retention-days: 14
+
+      - name: Upload backend logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: backend-log
+          path: /tmp/backend.log

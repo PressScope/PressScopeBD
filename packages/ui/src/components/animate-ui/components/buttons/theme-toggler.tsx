@@ -57,10 +57,14 @@ function ThemeTogglerButton({
 }: ThemeTogglerButtonProps) {
   const { theme, resolvedTheme, setTheme } = useTheme();
 
+  // Always have a usable theme value even during SSR/hydration when next-themes returns undefined
+  const effective = (theme ?? "dark") as ThemeSelection;
+  const resolved = (resolvedTheme ?? "dark") as Resolved;
+
   return (
     <ThemeTogglerPrimitive
-      theme={theme as ThemeSelection}
-      resolvedTheme={resolvedTheme as Resolved}
+      theme={effective}
+      resolvedTheme={resolved}
       setTheme={setTheme}
       direction={direction}
       onImmediateChange={onImmediateChange}
