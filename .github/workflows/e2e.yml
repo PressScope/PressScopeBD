@@ -56,10 +56,10 @@ jobs:
       # DATABASE MIGRATIONS
       # -------------------------
       - name: Run database migrations
+        working-directory: apps/server
         env:
           DATABASE_URL: postgresql://postgres:password@localhost:5432/PressScopeBd
-
-        run: pnpm run db:push
+        run: pnpm --filter db db:push
 
       # -------------------------
       # PLAYWRIGHT BROWSERS
