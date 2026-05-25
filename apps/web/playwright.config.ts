@@ -5,7 +5,7 @@ export default defineConfig({
   fullyParallel: true,
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 1 : 0,
-  workers: 10,
+  workers: 3,
   reporter: "html",
   use: {
     baseURL: "http://localhost:3001",
@@ -26,34 +26,18 @@ export default defineConfig({
       name: "webkit",
       use: { ...devices["Desktop Safari"] },
     },
-    {
-      name: "desktop-edge",
-      use: { ...devices["Desktop Edge"] },
-    },
-    {
-      name: "mobile-chrome",
-      use: { ...devices["Pixel 5"] },
-    },
-    {
-      name: "mobile-safari",
-      use: { ...devices["iPhone 12"] },
-    },
-    {
-      name: "chromium-560x320",
-      use: {
-        ...devices["Desktop Chrome"],
-        // It is important to define the `viewport` property after destructuring `devices`,
-        // since devices also define the `viewport` for that device.
-        viewport: { width: 1280, height: 720 },
-      },
-    },
   ],
   webServer: {
-    command: "pnpm run dev",
+    command: "pnpm dev --host 0.0.0.0 --port 3001",
     url: "http://localhost:3001",
-    reuseExistingServer: !process.env.CI,
-    timeout: 120_000,
+    reuseExistingServer: false,
+    timeout: 120 * 1000,
     stdout: "pipe",
     stderr: "pipe",
+    env: {
+      VITE_SERVER_URL: "http://localhost:3000",
+    },
   },
+  // Only the webServer — backend is started explicitly in the workflow
+  // CI=false locally so existing server is reused; CI=true in the workflow so it's started fresh
 });

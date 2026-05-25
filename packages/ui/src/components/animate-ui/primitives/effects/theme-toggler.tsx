@@ -62,10 +62,10 @@ function ThemeToggler({
   const [current, setCurrent] = React.useState<{
     effective: ThemeSelection;
     resolved: Resolved;
-  }>({
-    effective: theme,
-    resolved: resolvedTheme,
-  });
+  }>(() => ({
+    effective: (theme ?? 'dark') as ThemeSelection,
+    resolved: (resolvedTheme ?? 'dark') as Resolved,
+  }));
 
   React.useEffect(() => {
     if (

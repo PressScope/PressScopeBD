@@ -2,9 +2,9 @@ name: Build Desktop Apps
 
 on:
   workflow_dispatch:
-  push:
-    branches:
-      - main
+  # push:
+  #   branches:
+  #     - main
 
 permissions:
   contents: read
@@ -74,6 +74,14 @@ jobs:
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
+
+      # Push the Drizzle schema to the Supabase Postgres instance so that
+      # the auth tables exist before the backend / desktop app start.
+      # Required on all three runners — only the DATABASE_URL differs.
+      - name: Push database schema (drizzle-kit)
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: pnpm --filter @PressScopeBd/db db:push
 
       - name: Build Tauri app
         run: pnpm run desktop:build

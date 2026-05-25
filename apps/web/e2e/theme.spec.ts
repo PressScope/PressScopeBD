@@ -1,40 +1,30 @@
-import { expect, test } from "@playwright/test";
+// data-slot = "theme-toggler-button"
 
-test("theme toggler switches color-scheme", async ({ page }) => {
-  await page.goto("/login");
+import { test, expect } from "@playwright/test";
 
-  // --- Capture initial state -------------------------------------------------
-  await page.screenshot({ path: "test-results/theme-before.png" });
+test("has theme toggler button", async ({ page }) => {
+  await page.goto("/");
 
-  const button = page.locator('[data-slot="theme-toggler-button"]');
-  await expect(button).toBeVisible();
+  await expect(
+    page.locator("button[data-slot='theme-toggler-button']"),
+  ).toBeVisible();
+});
+test("toggles theme on click", async ({ page }) => {
+  await page.goto("/");
 
-  const initial = await page.evaluate(() => {
-    return document.documentElement.classList.contains("dark") ? "dark" : "light";
-  });
+  const themeToggler = page.locator("button[data-slot='theme-toggler-button']");
+  const html = page.locator("html");
 
-  // --- Click and wait for the transition to settle ---------------------------
-  await button.click();
-  await page.waitForTimeout(1000);
+  await expect(themeToggler).toBeVisible();
 
-  // --- Capture post-click state ----------------------------------------------
-  await page.screenshot({ path: "test-results/theme-after.png" });
+  await expect(html).toHaveClass(/light|dark/);
 
-  const afterClick = await page.evaluate(() => {
-    return document.documentElement.classList.contains("dark") ? "dark" : "light";
-  });
+  const initial = await html.getAttribute("class");
+  const initialTheme = initial?.includes("dark") ? "dark" : "light";
+  const nextTheme = initialTheme === "dark" ? "light" : "dark";
 
-  expect(afterClick).not.toBe(initial);
-
-  // --- Click a second time to move away from the first value -----------------
-  await button.click();
-  await page.waitForTimeout(1000);
-
-  await page.screenshot({ path: "test-results/theme-after-second-click.png" });
-
-  const afterSecondClick = await page.evaluate(() => {
-    return document.documentElement.classList.contains("dark") ? "dark" : "light";
-  });
-
-  expect(afterSecondClick).toBe(initial);
+  await themeToggler.click();
+  await expect(html).toHaveClass(new RegExp(nextTheme), { timeout: 5000 });
+  await themeToggler.click();
+  await expect(html).toHaveClass(new RegExp(initialTheme), { timeout: 5000 });
 });
