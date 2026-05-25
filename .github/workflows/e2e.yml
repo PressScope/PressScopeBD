@@ -94,8 +94,7 @@ jobs:
       # by playwright webServer config
       # -------------------------
       - name: Run Playwright E2E tests
-        working-directory: apps/web
-        run: pnpm test:e2e
+        run: pnpm --filter web test:e2e
 
       # -------------------------
       # ARTIFACTS
