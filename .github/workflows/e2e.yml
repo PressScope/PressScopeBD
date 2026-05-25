@@ -53,6 +53,13 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       # -------------------------
+      # PLAYWRIGHT BROWSERS
+      # -------------------------
+      - name: Install Playwright browsers
+        working-directory: apps/web
+        run: pnpm exec playwright install --with-deps
+
+      # -------------------------
       # BACKEND START
       # -------------------------
       - name: Start backend server
@@ -62,14 +69,14 @@ jobs:
           DATABASE_URL: postgresql://postgres:password@localhost:5432/PressScopeBd
           BETTER_AUTH_SECRET: dtLn7RrhcQnsc3Tx7XXejBwyxJmbxRur
           BETTER_AUTH_URL: http://localhost:3000
-          CORS_ORIGIN: http://localhost:3001
+          CORS_ORIGIN: http://127.0.0.1:3001
           NODE_ENV: development
         run: |
           nohup pnpm exec tsx src/index.ts > /tmp/backend.log 2>&1 &
           echo $! > /tmp/backend.pid
 
           for i in $(seq 1 60); do
-            if curl -sf http://localhost:3000 > /dev/null; then
+            if curl -sf http://127.0.0.1:3000 > /dev/null; then
               echo "Backend ready"
               exit 0
             fi
@@ -82,40 +89,14 @@ jobs:
           exit 1
 
       # -------------------------
-      # FRONTEND START
+      # PLAYWRIGHT TESTS
+      # Frontend is started automatically
+      # by playwright webServer config
       # -------------------------
-      - name: Start frontend (Vite)
-        working-directory: apps/web
-        env:
-          PORT: 3001
-        run: |
-          nohup pnpm dev > /tmp/frontend.log 2>&1 &
-          echo $! > /tmp/frontend.pid
-
-          for i in $(seq 1 60); do
-            if curl -sf http://localhost:3001 > /dev/null; then
-              echo "Frontend ready"
-              exit 0
-            fi
-            echo "Waiting for frontend... ($i/60)"
-            sleep 1
-          done
-
-          echo "Frontend failed to start"
-          cat /tmp/frontend.log
-          exit 1
-
-      # -------------------------
-      # PLAYWRIGHT
-      # -------------------------
-      - name: Install Playwright browsers
-        working-directory: apps/web
-        run: pnpm exec playwright install --with-deps
-
       - name: Run Playwright E2E tests
         working-directory: apps/web
         env:
-          BASE_URL: http://localhost:3001
+          CI: true
         run: pnpm test:e2e
 
       # -------------------------
@@ -135,10 +116,3 @@ jobs:
         with:
           name: backend-log
           path: /tmp/backend.log
-
-      - name: Upload frontend logs
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: frontend-log
-          path: /tmp/frontend.log
