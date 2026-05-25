@@ -69,7 +69,7 @@ jobs:
           DATABASE_URL: postgresql://postgres:password@localhost:5432/PressScopeBd
           BETTER_AUTH_SECRET: dtLn7RrhcQnsc3Tx7XXejBwyxJmbxRur
           BETTER_AUTH_URL: http://localhost:3000
-          CORS_ORIGIN: http://127.0.0.1:3001
+          CORS_ORIGIN: http://localhost:3001
           NODE_ENV: development
         run: |
           nohup pnpm exec tsx src/index.ts > /tmp/backend.log 2>&1 &
