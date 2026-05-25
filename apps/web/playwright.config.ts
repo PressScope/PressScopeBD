@@ -27,14 +27,17 @@ export default defineConfig({
       use: { ...devices["Desktop Safari"] },
     },
   ],
-  // Only the webServer — backend is started explicitly in the workflow
-  // CI=false locally so existing server is reused; CI=true in the workflow so it's started fresh
   webServer: {
-    command: "pnpm run dev",
+    command: "pnpm dev --host 0.0.0.0 --port 3001",
     url: "http://localhost:3001",
-    reuseExistingServer: !process.env.CI,
-    timeout: 120_000,
+    reuseExistingServer: false,
+    timeout: 120 * 1000,
     stdout: "pipe",
     stderr: "pipe",
+    env: {
+      VITE_SERVER_URL: "http://localhost:3000",
+    },
   },
+  // Only the webServer — backend is started explicitly in the workflow
+  // CI=false locally so existing server is reused; CI=true in the workflow so it's started fresh
 });
