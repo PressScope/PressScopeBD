@@ -53,6 +53,13 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       # -------------------------
+      # DATABASE MIGRATIONS
+      # -------------------------
+      - name: Run database migrations
+        working-directory: apps/server
+        run: pnpm --filter db db:push
+
+      # -------------------------
       # PLAYWRIGHT BROWSERS
       # -------------------------
       - name: Install Playwright browsers
