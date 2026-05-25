@@ -56,8 +56,8 @@ jobs:
       # DATABASE MIGRATIONS
       # -------------------------
       - name: Run database migrations
-        working-directory: apps/server
-        run: pnpm --filter db db:push
+
+        run: pnpm run db:push
 
       # -------------------------
       # PLAYWRIGHT BROWSERS
