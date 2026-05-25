@@ -34,6 +34,9 @@ export default defineConfig({
     timeout: 120 * 1000,
     stdout: "pipe",
     stderr: "pipe",
+    env: {
+      VITE_SERVER_URL: "http://localhost:3000",
+    },
   },
   // Only the webServer — backend is started explicitly in the workflow
   // CI=false locally so existing server is reused; CI=true in the workflow so it's started fresh
