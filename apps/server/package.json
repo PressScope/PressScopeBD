@@ -7,7 +7,8 @@
     "check-types": "tsc -b",
     "compile": "bun build --compile --minify --sourcemap --bytecode ./src/index.ts --outfile server",
     "dev": "tsx watch src/index.ts",
-    "start": "node dist/index.mjs"
+    "start": "node dist/index.mjs",
+    "setup": "bun run tsx src/create-admin.ts"
   },
   "dependencies": {
     "@PressScopeBd/auth": "workspace:*",
@@ -23,7 +24,7 @@
     "@PressScopeBd/config": "workspace:*",
     "@types/node": "catalog:",
     "tsdown": "^0.21.9",
-    "tsx": "^4.19.2",
+    "tsx": "^4.21.0",
     "typescript": "catalog:"
   }
 }

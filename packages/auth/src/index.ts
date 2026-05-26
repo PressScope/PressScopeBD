@@ -3,6 +3,7 @@ import * as schema from "@PressScopeBd/db/schema/auth";
 import { env } from "@PressScopeBd/env/server";
 import { betterAuth } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
+import { admin } from "better-auth/plugins/admin";
 
 export function createAuth() {
   const db = createDb();
@@ -26,7 +27,7 @@ export function createAuth() {
         httpOnly: true,
       },
     },
-    plugins: [],
+    plugins: [admin()],
   });
 }
 
