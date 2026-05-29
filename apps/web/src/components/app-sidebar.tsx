@@ -1,4 +1,9 @@
-import * as React from "react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@PressScopeBd/ui/components/dropdown-menu";
 import {
   Sidebar,
   SidebarContent,
@@ -6,18 +11,10 @@ import {
   SidebarGroup,
   SidebarGroupContent,
   SidebarGroupLabel,
-  SidebarHeader,
   SidebarMenu,
   SidebarMenuItem,
   SidebarMenuButton,
 } from "@PressScopeBd/ui/components/sidebar";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@PressScopeBd/ui/components/dropdown-menu";
 import {
   Home,
   Settings,
@@ -28,6 +25,8 @@ import {
   HelpCircle,
   ChevronUp,
 } from "lucide-react";
+import * as React from "react";
+
 import { NavUser } from "./nav-user";
 
 export function AppSidebar() {
@@ -75,7 +74,7 @@ export function AppSidebar() {
             <span>Settings</span>
             <DropdownMenu>
               <DropdownMenuTrigger>
-                <button className="flex items-center justify-center rounded-sm hover:bg-sidebar-accent h-5 w-5">
+                <button className="hover:bg-sidebar-accent flex h-5 w-5 items-center justify-center rounded-sm">
                   <ChevronUp className="h-3 w-3" />
                   <span className="sr-only">Toggle settings</span>
                 </button>

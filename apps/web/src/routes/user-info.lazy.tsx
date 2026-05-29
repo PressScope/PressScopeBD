@@ -1,10 +1,10 @@
-import { createLazyFileRoute } from "@tanstack/react-router";
 import {
   Avatar,
   AvatarFallback,
   AvatarImage,
 } from "@PressScopeBd/ui/components/avatar";
 import { Button } from "@PressScopeBd/ui/components/button";
+import { createLazyFileRoute } from "@tanstack/react-router";
 
 export const Route = createLazyFileRoute("/user-info")({
   component: RouteComponent,
@@ -22,10 +22,10 @@ function RouteComponent() {
       .toUpperCase() || "U";
 
   return (
-    <div className="flex flex-col gap-6 max-w-2xl mx-auto">
+    <div className="mx-auto flex max-w-2xl flex-col gap-6">
       <h1 className="text-3xl font-bold">Profile</h1>
 
-      <div className="flex items-center gap-4 p-6 rounded-lg border bg-card">
+      <div className="bg-card flex items-center gap-4 rounded-lg border p-6">
         <Avatar className="h-16 w-16">
           <AvatarImage
             src={user?.image || undefined}
@@ -40,8 +40,8 @@ function RouteComponent() {
       </div>
 
       <div className="grid gap-4">
-        <div className="p-4 rounded-lg border bg-card">
-          <h3 className="font-medium mb-2">Account Information</h3>
+        <div className="bg-card rounded-lg border p-4">
+          <h3 className="mb-2 font-medium">Account Information</h3>
           <div className="grid grid-cols-2 gap-4 text-sm">
             <div>
               <span className="text-muted-foreground">Name</span>

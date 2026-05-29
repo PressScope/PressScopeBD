@@ -26,5 +26,7 @@ test("toggles theme on click", async ({ page }) => {
   await themeToggler.click();
   await expect(html).toHaveClass(new RegExp(nextTheme), { timeout: 5000 });
   await themeToggler.click();
-  await expect(html).toHaveClass(new RegExp(initialTheme), { timeout: 5000 });
+  await expect(html).toHaveClass(new RegExp(initialTheme), {
+    timeout: 5000,
+  });
 });

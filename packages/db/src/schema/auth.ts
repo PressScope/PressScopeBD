@@ -10,7 +10,10 @@ export const user = pgTable("user", {
   role: text("role"),
   banned: boolean("banned"),
   banReason: text("ban_reason"),
-  banExpires: timestamp("ban_expires", { precision: 6, withTimezone: true }),
+  banExpires: timestamp("ban_expires", {
+    precision: 6,
+    withTimezone: true,
+  }),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at")
     .defaultNow()

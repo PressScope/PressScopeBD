@@ -1,20 +1,18 @@
-// routes/__root.tsx
-
+import { SidebarProvider } from "@PressScopeBd/ui/components/sidebar";
 import { Toaster } from "@PressScopeBd/ui/components/sonner";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import {
   HeadContent,
   Outlet,
   createRootRouteWithContext,
   redirect,
+  useRouterState,
 } from "@tanstack/react-router";
 import { TanStackRouterDevtools } from "@tanstack/react-router-devtools";
-
-import { SidebarProvider } from "@PressScopeBd/ui/components/sidebar";
 
 import { AppSidebar } from "@/components/app-sidebar";
 import Header from "@/components/header";
 import { ThemeProvider } from "@/components/theme-provider";
-
 import { authClient } from "@/lib/auth-client";
 
 import "../index.css";
@@ -38,7 +36,11 @@ export const Route = createRootRouteWithContext<RouterAppContext>()({
         to: "/login",
       });
     }
-
+    if (session.data && isPublicRoute) {
+      throw redirect({
+        to: "/",
+      });
+    }
     return { session };
   },
 
@@ -57,13 +59,17 @@ export const Route = createRootRouteWithContext<RouterAppContext>()({
   component: RootComponent,
 });
 
-function RootComponent() {
-  const pathname = window.location.pathname;
+const queryClient = new QueryClient();
 
-  const isAuthPage = pathname === "/login";
+function RootComponent() {
+  const pathname = useRouterState({
+    select: (state) => state.location.pathname,
+  });
+
+  const isAuthPage = ["/login", "/signup"].includes(pathname);
 
   return (
-    <>
+    <QueryClientProvider client={queryClient}>
       <HeadContent />
 
       <ThemeProvider attribute="class" defaultTheme="dark" enableSystem={false}>
@@ -73,7 +79,7 @@ function RootComponent() {
       </ThemeProvider>
 
       <TanStackRouterDevtools position="bottom-right" />
-    </>
+    </QueryClientProvider>
   );
 }
 

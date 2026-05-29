@@ -1,18 +1,17 @@
 "use client";
 
-import * as React from "react";
-import { useTheme } from "next-themes";
-import { Monitor, Moon, Sun } from "lucide-react";
-import { type VariantProps } from "class-variance-authority";
-
+import { buttonVariants } from "@PressScopeBd/ui/components/animate-ui/components/buttons/icon";
 import {
   ThemeToggler as ThemeTogglerPrimitive,
   type ThemeTogglerProps as ThemeTogglerPrimitiveProps,
   type ThemeSelection,
   type Resolved,
 } from "@PressScopeBd/ui/components/animate-ui/primitives/effects/theme-toggler";
-import { buttonVariants } from "@PressScopeBd/ui/components/animate-ui/components/buttons/icon";
 import { cn } from "@PressScopeBd/ui/lib/utils";
+import { type VariantProps } from "class-variance-authority";
+import { Monitor, Moon, Sun } from "lucide-react";
+import { useTheme } from "next-themes";
+import * as React from "react";
 
 const getIcon = (
   effective: ThemeSelection,
