@@ -1,12 +1,14 @@
-'use client';
+"use client";
 
-import * as React from 'react';
-import { motion, type HTMLMotionProps } from 'motion/react';
-
-import { Slot, type WithAsChild } from '@PressScopeBd/ui/components/animate-ui/primitives/animate/slot';
+import {
+  Slot,
+  type WithAsChild,
+} from "@PressScopeBd/ui/components/animate-ui/primitives/animate/slot";
+import { motion, type HTMLMotionProps } from "motion/react";
+import * as React from "react";
 
 type ButtonProps = WithAsChild<
-  HTMLMotionProps<'button'> & {
+  HTMLMotionProps<"button"> & {
     hoverScale?: number;
     tapScale?: number;
   }

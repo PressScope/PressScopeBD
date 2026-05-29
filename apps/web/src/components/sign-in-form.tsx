@@ -3,144 +3,250 @@ import { Input } from "@PressScopeBd/ui/components/input";
 import { Label } from "@PressScopeBd/ui/components/label";
 import { useForm } from "@tanstack/react-form";
 import { useNavigate } from "@tanstack/react-router";
+import { Eye, EyeOff, Loader2, Mail, Lock } from "lucide-react";
+import { useMemo, useState } from "react";
 import { toast } from "sonner";
-import z from "zod";
+import { z } from "zod";
 
 import { authClient } from "@/lib/auth-client";
 
 import Loader from "./loader";
 
-export default function SignInForm({
-  onSwitchToSignUp,
-}: {
-  onSwitchToSignUp: () => void;
-}) {
-  const navigate = useNavigate({
-    from: "/",
-  });
-  const { isPending } = authClient.useSession();
+/* -------------------------------------------------------------------------- */
+/*                                   Schema                                   */
+/* -------------------------------------------------------------------------- */
 
-  const form = useForm({
-    defaultValues: {
+const signInSchema = z.object({
+  email: z.string().trim().email("Please enter a valid email address"),
+
+  password: z
+    .string()
+    .min(8, "Password must be at least 8 characters")
+    .max(128, "Password is too long"),
+});
+
+type SignInFormValues = z.infer<typeof signInSchema>;
+
+/* -------------------------------------------------------------------------- */
+/*                              Reusable Helpers                              */
+/* -------------------------------------------------------------------------- */
+
+function ErrorMessage({ error }: { error?: string }) {
+  if (!error) return null;
+
+  return (
+    <p role="alert" className="text-destructive text-sm font-medium">
+      {error}
+    </p>
+  );
+}
+
+/* -------------------------------------------------------------------------- */
+/*                                Main Component                              */
+/* -------------------------------------------------------------------------- */
+
+export default function SignInForm() {
+  const navigate = useNavigate({ from: "/" });
+
+  const { isPending: sessionPending } = authClient.useSession();
+
+  const [showPassword, setShowPassword] = useState(false);
+
+  const defaultValues = useMemo<SignInFormValues>(
+    () => ({
       email: "",
       password: "",
-    },
-    onSubmit: async ({ value }) => {
-      await authClient.signIn.email(
-        {
-          email: value.email,
-          password: value.password,
-        },
-        {
-          onSuccess: () => {
-            navigate({
-              to: "/",
-            });
-            toast.success("Sign in successful");
-          },
-          onError: (error) => {
-            toast.error(error.error.message || error.error.statusText);
-          },
-        },
-      );
-    },
+    }),
+    [],
+  );
+
+  const form = useForm({
+    defaultValues,
+
     validators: {
-      onSubmit: z.object({
-        email: z.email("Invalid email address"),
-        password: z.string().min(8, "Password must be at least 8 characters"),
-      }),
+      onChange: signInSchema,
+      onSubmit: signInSchema,
+    },
+
+    onSubmit: async ({ value }) => {
+      try {
+        await authClient.signIn.email(
+          {
+            email: value.email,
+            password: value.password,
+          },
+          {
+            onSuccess: async () => {
+              toast.success("Successfully signed in");
+
+              await navigate({
+                to: "/",
+              });
+            },
+
+            onError: (ctx) => {
+              toast.error(
+                ctx.error.message ||
+                  ctx.error.statusText ||
+                  "Failed to sign in",
+              );
+            },
+          },
+        );
+      } catch (error) {
+        console.error(error);
+
+        toast.error("Something went wrong. Please try again.");
+      }
     },
   });
 
-  if (isPending) {
+  if (sessionPending) {
     return <Loader />;
   }
 
   return (
-    <div className="mx-auto w-full  max-w-lg  h-full flex flex-col justify-center">
-      <h1 className="mb-6 text-center text-3xl font-bold">Welcome Back</h1>
+    <div className="mx-auto flex h-full w-full max-w-xl flex-col justify-center px-4">
+      <div className="space-y-2 text-center">
+        <h1 className="text-4xl font-bold tracking-tight">Welcome Back</h1>
+
+        <p className="text-muted-foreground">
+          Sign in to continue to your account
+        </p>
+      </div>
 
       <form
+        className="mt-8 space-y-6"
+        noValidate
         onSubmit={(e) => {
           e.preventDefault();
           e.stopPropagation();
-          form.handleSubmit();
-        }}
-        className="space-y-4"
-      >
-        <div>
-          <form.Field name="email">
-            {(field) => (
-              <div className="space-y-2">
-                <Label htmlFor={field.name}>Email</Label>
-                <Input
-                  id={field.name}
-                  name={field.name}
-                  type="email"
-                  value={field.state.value}
-                  onBlur={field.handleBlur}
-                  onChange={(e) => field.handleChange(e.target.value)}
-                />
-                {field.state.meta.errors.map((error) => (
-                  <p key={error?.message} className="text-red-500">
-                    {error?.message}
-                  </p>
-                ))}
-              </div>
-            )}
-          </form.Field>
-        </div>
 
-        <div>
-          <form.Field name="password">
-            {(field) => (
+          void form.handleSubmit();
+        }}
+      >
+        {/* ------------------------------------------------------------------ */}
+        {/* Email                                                              */}
+        {/* ------------------------------------------------------------------ */}
+
+        <form.Field name="email">
+          {(field) => {
+            const error = field.state.meta.errors[0]?.message;
+
+            return (
               <div className="space-y-2">
-                <Label htmlFor={field.name}>Password</Label>
-                <Input
-                  id={field.name}
-                  name={field.name}
-                  type="password"
-                  value={field.state.value}
-                  onBlur={field.handleBlur}
-                  onChange={(e) => field.handleChange(e.target.value)}
-                />
-                {field.state.meta.errors.map((error) => (
-                  <p key={error?.message} className="text-red-500">
-                    {error?.message}
-                  </p>
-                ))}
+                <Label htmlFor={field.name}>Email Address</Label>
+
+                <div className="relative">
+                  <Mail className="text-muted-foreground absolute top-1/2 left-3 size-4 -translate-y-1/2" />
+
+                  <Input
+                    id={field.name}
+                    name={field.name}
+                    type="email"
+                    autoComplete="email"
+                    placeholder="you@example.com"
+                    value={field.state.value}
+                    onBlur={field.handleBlur}
+                    onChange={(e) => field.handleChange(e.target.value)}
+                    className="pl-10"
+                    aria-invalid={!!error}
+                    aria-describedby={`${field.name}-error`}
+                  />
+                </div>
+
+                <ErrorMessage error={error} />
               </div>
-            )}
-          </form.Field>
-        </div>
+            );
+          }}
+        </form.Field>
+
+        {/* ------------------------------------------------------------------ */}
+        {/* Password                                                           */}
+        {/* ------------------------------------------------------------------ */}
+
+        <form.Field name="password">
+          {(field) => {
+            const error = field.state.meta.errors[0]?.message;
+
+            return (
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <Label htmlFor={field.name}>Password</Label>
+                </div>
+
+                <div className="relative">
+                  <Lock className="text-muted-foreground absolute top-1/2 left-3 size-4 -translate-y-1/2" />
+
+                  <Input
+                    id={field.name}
+                    name={field.name}
+                    type={showPassword ? "text" : "password"}
+                    autoComplete="current-password"
+                    placeholder="Enter your password"
+                    value={field.state.value}
+                    onBlur={field.handleBlur}
+                    onChange={(e) => field.handleChange(e.target.value)}
+                    className="pr-10 pl-10"
+                    aria-invalid={!!error}
+                    aria-describedby={`${field.name}-error`}
+                  />
+
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword((prev) => !prev)}
+                    className="text-muted-foreground hover:text-foreground absolute top-1/2 right-3 -translate-y-1/2 transition-colors"
+                    aria-label={
+                      showPassword ? "Hide password" : "Show password"
+                    }
+                  >
+                    {showPassword ? (
+                      <EyeOff className="size-4" />
+                    ) : (
+                      <Eye className="size-4" />
+                    )}
+                  </button>
+                </div>
+
+                <ErrorMessage error={error} />
+              </div>
+            );
+          }}
+        </form.Field>
+
+        {/* ------------------------------------------------------------------ */}
+        {/* Submit                                                             */}
+        {/* ------------------------------------------------------------------ */}
 
         <form.Subscribe
           selector={(state) => ({
             canSubmit: state.canSubmit,
             isSubmitting: state.isSubmitting,
+            isDirty: state.isDirty,
           })}
         >
-          {({ canSubmit, isSubmitting }) => (
+          {({ canSubmit, isSubmitting, isDirty }) => (
             <Button
               type="submit"
-              className="w-full"
-              disabled={!canSubmit || isSubmitting}
+              className="h-11 w-full"
+              disabled={!canSubmit || !isDirty || isSubmitting}
             >
-              {isSubmitting ? "Submitting..." : "Sign In"}
+              {isSubmitting ? (
+                <span className="flex items-center gap-2">
+                  <Loader2 className="size-4 animate-spin" />
+                  Signing in...
+                </span>
+              ) : (
+                "Sign In"
+              )}
             </Button>
           )}
         </form.Subscribe>
-      </form>
 
-      <div className="mt-4 text-center">
-        <Button
-          variant="link"
-          onClick={onSwitchToSignUp}
-          className="text-indigo-600 hover:text-indigo-800"
-        >
-          Need an account? Sign Up
-        </Button>
-      </div>
+        {/* ------------------------------------------------------------------ */}
+        {/* Footer                                                             */}
+        {/* ------------------------------------------------------------------ */}
+      </form>
     </div>
   );
 }
