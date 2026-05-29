@@ -3,5 +3,10 @@
   "sortTailwindcss": true,
   "sortImports": true,
   "printWidth": 80,
-  "ignorePatterns": []
+  "ignorePatterns": [
+    "**/dist/**",
+    "**/build/**",
+    "**/node_modules/**",
+    "routeTree.gen.ts"
+  ]
 }
