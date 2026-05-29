@@ -1,7 +1,3 @@
-"use client";
-
-import { CreditCard, LogOut, User } from "lucide-react";
-
 import {
   Avatar,
   AvatarFallback,
@@ -22,6 +18,8 @@ import {
   useSidebar,
 } from "@PressScopeBd/ui/components/sidebar";
 import { useNavigate } from "@tanstack/react-router";
+import { CreditCard, LogOut, User } from "lucide-react";
+
 import { authClient } from "@/lib/auth-client";
 
 export function NavUser() {
@@ -34,10 +32,10 @@ export function NavUser() {
       <SidebarMenu>
         <SidebarMenuItem>
           <SidebarMenuButton size="lg">
-            <div className="h-8 w-8 rounded-lg bg-muted animate-pulse" />
+            <div className="bg-muted h-8 w-8 animate-pulse rounded-lg" />
             <div className="grid flex-1 text-left text-sm leading-tight">
-              <div className="h-4 w-24 bg-muted animate-pulse rounded mb-1" />
-              <div className="h-3 w-32 bg-muted animate-pulse rounded" />
+              <div className="bg-muted mb-1 h-4 w-24 animate-pulse rounded" />
+              <div className="bg-muted h-3 w-32 animate-pulse rounded" />
             </div>
           </SidebarMenuButton>
         </SidebarMenuItem>
@@ -77,7 +75,7 @@ export function NavUser() {
               </Avatar>
               <div className="grid flex-1 text-left text-sm leading-tight">
                 <span className="truncate font-medium">{user.name}</span>
-                <span className="truncate text-xs text-muted-foreground">
+                <span className="text-muted-foreground truncate text-xs">
                   {user.email}
                 </span>
               </div>

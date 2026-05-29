@@ -1,15 +1,14 @@
-import { Link, useNavigate } from "@tanstack/react-router";
-import { useForm } from "@tanstack/react-form";
-import { Eye, EyeOff, Loader2, Mail, Lock } from "lucide-react";
-import { useMemo, useState } from "react";
-import { z } from "zod";
-
 import { Button } from "@PressScopeBd/ui/components/button";
 import { Input } from "@PressScopeBd/ui/components/input";
 import { Label } from "@PressScopeBd/ui/components/label";
+import { useForm } from "@tanstack/react-form";
+import { useNavigate } from "@tanstack/react-router";
+import { Eye, EyeOff, Loader2, Mail, Lock } from "lucide-react";
+import { useMemo, useState } from "react";
+import { toast } from "sonner";
+import { z } from "zod";
 
 import { authClient } from "@/lib/auth-client";
-import { toast } from "sonner";
 
 import Loader from "./loader";
 
@@ -36,7 +35,7 @@ function ErrorMessage({ error }: { error?: string }) {
   if (!error) return null;
 
   return (
-    <p role="alert" className="text-sm font-medium text-destructive">
+    <p role="alert" className="text-destructive text-sm font-medium">
       {error}
     </p>
   );
