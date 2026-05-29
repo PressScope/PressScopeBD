@@ -5,6 +5,7 @@ packages:
 allowBuilds:
   esbuild: true
   msw: true
+  sharp: true
 
 catalog:
   "@types/node": ^22.19.19
