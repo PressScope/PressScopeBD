@@ -80,6 +80,9 @@ jobs:
           BETTER_AUTH_URL: http://localhost:3000
           CORS_ORIGIN: http://localhost:3001
           NODE_ENV: development
+          ADMIN_EMAIL: admin@gmail.com
+          ADMIN_PASSWORD: admin123
+          ADMIN_NAME: admin
         run: |
           nohup pnpm exec tsx src/index.ts > /tmp/backend.log 2>&1 &
           echo $! > /tmp/backend.pid
