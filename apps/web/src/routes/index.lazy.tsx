@@ -1,19 +1,21 @@
-import { createLazyFileRoute, redirect } from "@tanstack/react-router";
-import { useHotkey } from "@tanstack/react-hotkeys";
+// routes/index.lazy.tsx
+
+import { createLazyFileRoute } from "@tanstack/react-router";
 
 export const Route = createLazyFileRoute("/")({
-  component: RouteComponent,
+  component: HomePage,
 });
 
-function RouteComponent() {
+function HomePage() {
   const { session } = Route.useRouteContext();
-  useHotkey("Mod+K", () => {
-    console.log("Redirecting to dashboard");
-  });
+
   return (
-    <div>
-      <h1>Dashboard</h1>
-      <p>Welcome {session.data?.user.name}</p>
+    <div className="space-y-2">
+      <h1 className="text-3xl font-bold">Dashboard</h1>
+
+      <p className="text-muted-foreground">
+        Welcome back, {session.data?.user?.role}
+      </p>
     </div>
   );
 }

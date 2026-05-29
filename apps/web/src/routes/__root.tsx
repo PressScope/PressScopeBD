@@ -1,51 +1,49 @@
+import { SidebarProvider } from "@PressScopeBd/ui/components/sidebar";
 import { Toaster } from "@PressScopeBd/ui/components/sonner";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import {
   HeadContent,
   Outlet,
   createRootRouteWithContext,
   redirect,
+  useRouterState,
 } from "@tanstack/react-router";
 import { TanStackRouterDevtools } from "@tanstack/react-router-devtools";
 
+import { AppSidebar } from "@/components/app-sidebar";
 import Header from "@/components/header";
 import { ThemeProvider } from "@/components/theme-provider";
-import {
-  SidebarProvider,
-  SidebarTrigger,
-} from "@PressScopeBd/ui/components/sidebar";
-import { AppSidebar } from "@/components/app-sidebar";
-
-import "../index.css";
-// Importing the auth client lazily prevents a hard module-level throw if the
-// network call inside createAuthClient fails during CI / when the backend is down.
-// If the import itself throws (e.g. a missing dependency), fall back to a stub so
-// that the rest of the app — including the theme toggler — can still render.
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
 import { authClient } from "@/lib/auth-client";
 
-export interface RouterAppContext {}
+import "../index.css";
+
+type Session = Awaited<ReturnType<typeof authClient.getSession>>;
+
+export interface RouterAppContext {
+  session: Session;
+}
+
+const publicRoutes = ["/login", "/signup"];
 
 export const Route = createRootRouteWithContext<RouterAppContext>()({
-  component: RootComponent,
-  beforeLoad: async () => {
-    let session: { data: unknown } = { data: {} };
-    try {
-      session =
-        (await authClient?.getSession?.()) ??
-        ({ data: undefined } as unknown as { data: unknown });
-    } catch {
-      // Ignore auth failures — login page and tests don't need a live session
-    }
-    if (window.location.pathname === "/login") {
-      console.log("Already on login page");
-    } else if (!session.data) {
-      redirect({
+  beforeLoad: async ({ location }) => {
+    const session = await authClient.getSession();
+
+    const isPublicRoute = publicRoutes.includes(location.pathname);
+
+    if (!session.data && !isPublicRoute) {
+      throw redirect({
         to: "/login",
-        throw: true,
+      });
+    }
+    if (session.data && isPublicRoute) {
+      throw redirect({
+        to: "/",
       });
     }
     return { session };
   },
+
   head: () => ({
     meta: [
       {
@@ -53,53 +51,64 @@ export const Route = createRootRouteWithContext<RouterAppContext>()({
       },
       {
         name: "description",
-        content: "PressScopeBd is a web application",
-      },
-    ],
-    links: [
-      {
-        rel: "icon",
-        href: "/favicon.ico",
+        content: "PressScopeBd dashboard",
       },
     ],
   }),
+
+  component: RootComponent,
 });
 
-function RootComponent() {
-  const { session } = Route.useRouteContext();
+const queryClient = new QueryClient();
 
-  // Hide sidebar on login page
-  const pathname = window.location.pathname;
-  const isLoginPage = pathname === "/login" || pathname === "/signup";
+function RootComponent() {
+  const pathname = useRouterState({
+    select: (state) => state.location.pathname,
+  });
+
+  const isAuthPage = ["/login", "/signup"].includes(pathname);
 
   return (
-    <>
+    <QueryClientProvider client={queryClient}>
       <HeadContent />
+
       <ThemeProvider attribute="class" defaultTheme="dark" enableSystem={false}>
-        {!isLoginPage && (
-          <SidebarProvider>
-            <div className="w-full h-screen flex">
-              <AppSidebar />
-              <div className="flex-1 flex flex-col">
-                <Header />
-                <main className="flex-1 px-4 py-6 w-full">
-                  <Outlet />
-                </main>
-              </div>
-            </div>
-          </SidebarProvider>
-        )}
-        {isLoginPage ? (
-          <div className="w-full h-screen flex flex-col">
-            <Header />
-            <main className="flex-1 px-4 py-6 w-full ">
-              <Outlet />
-            </main>
-          </div>
-        ) : null}
+        {isAuthPage ? <AuthLayout /> : <DashboardLayout />}
+
         <Toaster richColors />
       </ThemeProvider>
+
       <TanStackRouterDevtools position="bottom-right" />
-    </>
+    </QueryClientProvider>
+  );
+}
+
+function AuthLayout() {
+  return (
+    <div className="flex h-screen flex-col">
+      <Header />
+
+      <main className="flex-1 px-4 py-6">
+        <Outlet />
+      </main>
+    </div>
+  );
+}
+
+function DashboardLayout() {
+  return (
+    <SidebarProvider>
+      <div className="flex h-screen w-full">
+        <AppSidebar />
+
+        <div className="flex flex-1 flex-col">
+          <Header />
+
+          <main className="flex-1 px-4 py-6">
+            <Outlet />
+          </main>
+        </div>
+      </div>
+    </SidebarProvider>
   );
 }
