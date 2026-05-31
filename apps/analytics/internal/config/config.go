@@ -7,8 +7,9 @@ import (
 )
 
 type Config struct {
-	Server ServerConfig
-	Valkey ValkeyConfig
+	Server   ServerConfig
+	Valkey   ValkeyConfig
+	MotherDuck MotherDuckConfig
 }
 
 type ServerConfig struct {
@@ -26,6 +27,11 @@ type ValkeyConfig struct {
 	MaxStreamLen  int64
 	ConsumerGroup string
 	ConsumerName  string
+}
+
+type MotherDuckConfig struct {
+	Token string
+	DB    string
 }
 
 func Load() (*Config, error) {
@@ -49,6 +55,10 @@ func Load() (*Config, error) {
 			MaxStreamLen:  maxLen,
 			ConsumerGroup: getEnv("VALKEY_CONSUMER_GROUP", "analytics-processors"),
 			ConsumerName:  getEnv("VALKEY_CONSUMER_NAME", "processor-1"),
+		},
+		MotherDuck: MotherDuckConfig{
+			Token: getEnv("MOTHERDUCK_TOKEN", ""),
+			DB:    getEnv("MOTHERDUCK_DB", "analytics"),
 		},
 	}, nil
 }
