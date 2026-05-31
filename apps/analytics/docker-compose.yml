@@ -1,0 +1,32 @@
+services:
+  valkey:
+    image: valkey/valkey:8-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - valkey_data:/data
+    command: valkey-server --save 60 1 --loglevel notice
+    healthcheck:
+      test: ["CMD", "valkey-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  analytics:
+    build: .
+    ports:
+      - "8080:8080"
+    environment:
+      PORT: "8080"
+      VALKEY_URL: "redis://valkey:6379"
+      VALKEY_STREAM_NAME: "analytics:events"
+      VALKEY_STREAM_MAX_LEN: "100000"
+      VALKEY_CONSUMER_GROUP: "analytics-processors"
+      VALKEY_CONSUMER_NAME: "processor-1"
+    depends_on:
+      valkey:
+        condition: service_healthy
+    restart: unless-stopped
+
+volumes:
+  valkey_data:
