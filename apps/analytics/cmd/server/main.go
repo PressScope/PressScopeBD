@@ -7,12 +7,16 @@ import (
 	"os/signal"
 	"syscall"
 
+	"github.com/joho/godotenv"
+
 	"analytics/internal/api"
 	"analytics/internal/config"
 	"analytics/internal/queue"
 )
 
 func main() {
+	_ = godotenv.Load()
+
 	logger := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{
 		Level: slog.LevelDebug,
 	}))

@@ -11,13 +11,16 @@ import (
 	"syscall"
 	"time"
 
-	_ "github.com/duckdb/duckdb-go/v2"
+	"github.com/duckdb/duckdb-go/v2"
+	"github.com/joho/godotenv"
 
 	"analytics/internal/config"
 	"analytics/internal/queue"
 )
 
 func main() {
+	_ = godotenv.Load()
+
 	logger := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{
 		Level: slog.LevelDebug,
 	}))
@@ -42,27 +45,27 @@ func run(logger *slog.Logger) error {
 	}
 	defer valkeyClient.Close()
 
+	// Handle graceful shutdown via context cancellation
+	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
+	defer stop()
+
 	// Connect to DuckDB (using local file for demonstration)
-	// In production, this would connect to MotherDuck
 	dbPath := "analytics.duckdb"
-	if cfg.MotherDuck.Token != "" {
-		// Try to connect to MotherDuck if token is provided
+	if cfg.MotherDuck.Token != "" && cfg.MotherDuck.DB != "" {
 		db, err := sql.Open("duckdb", fmt.Sprintf("md:%s?motherduck_token=%s", cfg.MotherDuck.DB, cfg.MotherDuck.Token))
 		if err == nil {
-			// Test the connection
-			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-			defer cancel()
-			if err := db.PingContext(ctx); err == nil {
+			pingCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
+			err := db.PingContext(pingCtx)
+			cancel()
+			if err == nil {
 				logger.Info("connected to motherduck", "database", cfg.MotherDuck.DB)
 				defer db.Close()
-				return runWithDB(context.Background(), db, valkeyClient, logger, cfg)
+				return runWithDB(ctx, db, valkeyClient, logger, cfg)
 			}
-			db.Close()
 		}
 		logger.Warn("failed to connect to motherduck, falling back to local duckdb", "err", err)
 	}
 
-	// Fallback to local DuckDB file
 	logger.Info("using local duckdb file", "path", dbPath)
 	db, err := sql.Open("duckdb", dbPath)
 	if err != nil {
@@ -70,11 +73,10 @@ func run(logger *slog.Logger) error {
 	}
 	defer db.Close()
 
-	return runWithDB(context.Background(), db, valkeyClient, logger, cfg)
+	return runWithDB(ctx, db, valkeyClient, logger, cfg)
 }
 
 func runWithDB(ctx context.Context, db *sql.DB, valkeyClient *queue.Client, logger *slog.Logger, cfg *config.Config) error {
-	// Ensure the events table exists
 	if err := ensureEventsTable(ctx, db); err != nil {
 		return fmt.Errorf("ensure events table: %w", err)
 	}
@@ -84,73 +86,54 @@ func runWithDB(ctx context.Context, db *sql.DB, valkeyClient *queue.Client, logg
 		"group", cfg.Valkey.ConsumerGroup,
 		"consumer", cfg.Valkey.ConsumerName)
 
-	// Graceful shutdown on SIGINT / SIGTERM
-	quit := make(chan os.Signal, 1)
-	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
+	ticker := time.NewTicker(5 * time.Second)
+	defer ticker.Stop()
 
-	// Main processing loop
-	go func() {
-		ticker := time.NewTicker(5 * time.Second) // For timeout if we don't reach 1000 events
-		defer ticker.Stop()
+	var batch []queue.EventMessage
+	var streamIDs []string
 
-		var batch []queue.EventMessage
-		var streamIDs []string
+	flush := func() {
+		if len(batch) > 0 {
+			if err := processBatch(ctx, db, batch, streamIDs, valkeyClient, logger); err != nil {
+				logger.Error("failed to process batch", "err", err)
+			}
+			batch = nil
+			streamIDs = nil
+		}
+	}
 
-		for {
-			select {
-			case <-quit:
-				logger.Info("shutdown signal received")
-				// Process any remaining events in the batch
-				if len(batch) > 0 {
-					if err := processBatch(context.Background(), db, batch, streamIDs, valkeyClient, logger); err != nil {
-						logger.Error("failed to process final batch", "err", err)
-					}
-				}
-				return
-			case <-ticker.C:
-				// Timeout: process batch if we have any events
-				if len(batch) > 0 {
-					if err := processBatch(context.Background(), db, batch, streamIDs, valkeyClient, logger); err != nil {
-						logger.Error("failed to process batch on timeout", "err", err)
-					}
-					batch = nil
-					streamIDs = nil
-				}
-			default:
-				// Read from Valkey stream
-				entries, err := valkeyClient.Read(context.Background(), 1000, 500*time.Millisecond)
-				if err != nil {
-					logger.Error("failed to read from stream", "err", err)
-					time.Sleep(1 * time.Second) // Back off on error
+	for {
+		select {
+		case <-ctx.Done():
+			logger.Info("shutdown signal received, flushing remaining records")
+			flush()
+			logger.Info("motherduck worker shut down cleanly")
+			return nil
+
+		case <-ticker.C:
+			flush()
+
+		default:
+			entries, err := valkeyClient.Read(ctx, 1000, 500*time.Millisecond)
+			if err != nil {
+				if ctx.Err() != nil {
 					continue
 				}
+				logger.Error("failed to read from stream", "err", err)
+				time.Sleep(1 * time.Second)
+				continue
+			}
 
-				if len(entries) == 0 {
-					// No new messages, continue
-					continue
-				}
+			for _, entry := range entries {
+				batch = append(batch, entry.Message)
+				streamIDs = append(streamIDs, entry.StreamID)
+			}
 
-				for _, entry := range entries {
-					batch = append(batch, entry.Message)
-					streamIDs = append(streamIDs, entry.StreamID)
-				}
-
-				// If we've reached 1000 events, process the batch
-				if len(batch) >= 1000 {
-					if err := processBatch(context.Background(), db, batch, streamIDs, valkeyClient, logger); err != nil {
-						logger.Error("failed to process batch", "err", err)
-					}
-					batch = nil
-					streamIDs = nil
-				}
+			if len(batch) >= 1000 {
+				flush()
 			}
 		}
-	}()
-
-	// Wait for shutdown signal
-	<-quit
-	logger.Info("motherduck worker shut down cleanly")
-	return nil
+	}
 }
 
 func processBatch(ctx context.Context, db *sql.DB, events []queue.EventMessage, streamIDs []string, valkeyClient *queue.Client, logger *slog.Logger) error {
@@ -158,69 +141,72 @@ func processBatch(ctx context.Context, db *sql.DB, events []queue.EventMessage, 
 		return nil
 	}
 
-	logger.Info("processing batch", "count", len(events))
+	logger.Info("processing batch via native appender", "count", len(events))
 
-	// Start a transaction
-	tx, err := db.BeginTx(ctx, nil)
+	// 1. Grab a dedicated connection from the pool
+	conn, err := db.Conn(ctx)
 	if err != nil {
-		return fmt.Errorf("begin transaction: %w", err)
+		return fmt.Errorf("get connection from pool: %w", err)
 	}
+	defer conn.Close()
 
-	// Prepare the insert statement
-	stmt, err := tx.PrepareContext(ctx, `
-		INSERT INTO events (
-			event_id, event_type, source, occurred_at, received_at, session_id, user_id, properties, meta
-		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-	`)
+	// 2. Escape driver to leverage native DuckDB driver functionality
+	err = conn.Raw(func(driverConn any) error {
+		nativeConn, ok := driverConn.(*duckdb.Conn)
+		if !ok {
+			return fmt.Errorf("unexpected driver connection type")
+		}
+
+		// 3. Initialize the appender targeting the main schema and 'events' table
+		appender, err := duckdb.NewAppenderFromConn(nativeConn, "", "events")
+		if err != nil {
+			return fmt.Errorf("initialize appender: %w", err)
+		}
+		defer appender.Close()
+
+		// 4. Stream rows sequentially into memory
+		for _, evt := range events {
+			propertiesJSON, err := json.Marshal(evt.Properties)
+			if err != nil {
+				propertiesJSON = []byte(`{}`)
+			}
+			metaJSON, err := json.Marshal(evt.Meta)
+			if err != nil {
+				metaJSON = []byte(`{}`)
+			}
+
+			// Column ordering matches your table layout explicitly
+			err = appender.AppendRow(
+				evt.ID,
+				evt.Type,
+				evt.Source,
+				evt.OccurredAt,
+				evt.ReceivedAt,
+				evt.SessionID,
+				evt.UserID,
+				string(propertiesJSON),
+				string(metaJSON),
+			)
+			if err != nil {
+				return fmt.Errorf("append row (id: %s): %w", evt.ID, err)
+			}
+		}
+
+		// 5. Flush all accumulated rows out to the database at once
+		if err := appender.Flush(); err != nil {
+			return fmt.Errorf("flush appender rows: %w", err)
+		}
+
+		return nil
+	})
 	if err != nil {
-		tx.Rollback()
-		return fmt.Errorf("prepare statement: %w", err)
-	}
-	defer stmt.Close()
-
-	// Insert each event
-	for _, evt := range events {
-		propertiesJSON, err := json.Marshal(evt.Properties)
-		if err != nil {
-			logger.Warn("failed to marshal properties", "event_id", evt.ID, "err", err)
-			propertiesJSON = []byte(`{}`)
-		}
-		metaJSON, err := json.Marshal(evt.Meta)
-		if err != nil {
-			logger.Warn("failed to marshal meta", "event_id", evt.ID, "err", err)
-			metaJSON = []byte(`{}`)
-		}
-
-		_, err = stmt.ExecContext(ctx,
-			evt.ID,
-			evt.Type,
-			evt.Source,
-			evt.OccurredAt,
-			evt.ReceivedAt,
-			evt.SessionID,
-			evt.UserID,
-			string(propertiesJSON),
-			string(metaJSON),
-		)
-		if err != nil {
-			logger.Error("failed to insert event", "event_id", evt.ID, "err", err)
-			tx.Rollback()
-			return fmt.Errorf("insert event: %w", err)
-		}
+		return fmt.Errorf("appender execution failed: %w", err)
 	}
 
-	// Commit the transaction
-	if err := tx.Commit(); err != nil {
-		return fmt.Errorf("commit transaction: %w", err)
-	}
+	logger.Info("batch appended, now acknowledging", "count", len(events))
 
-	// Acknowledge the processed events
 	if err := valkeyClient.Ack(ctx, streamIDs...); err != nil {
 		logger.Error("failed to acknowledge events", "err", err)
-		// Note: We don't return the error here because the events are already inserted into DuckDB.
-		// The unacknowledged messages will be redelivered, but we have already processed them.
-		// We could choose to not acknowledge and rely on deduplication, but for simplicity,
-		// we'll log the error and continue.
 	}
 
 	logger.Info("batch processed and acknowledged", "count", len(events))
@@ -228,13 +214,11 @@ func processBatch(ctx context.Context, db *sql.DB, events []queue.EventMessage, 
 }
 
 func ensureEventsTable(ctx context.Context, db *sql.DB) error {
-	// Check if the table exists
 	var exists int
 	err := db.QueryRowContext(ctx, `
 		SELECT COUNT(*) 
 		FROM information_schema.tables 
-		WHERE table_schema = 'main' 
-		AND table_name = 'events'
+		WHERE table_name = 'events'
 	`).Scan(&exists)
 	if err != nil {
 		return fmt.Errorf("check table existence: %w", err)
@@ -244,9 +228,8 @@ func ensureEventsTable(ctx context.Context, db *sql.DB) error {
 		return nil
 	}
 
-	// Create the table
 	query := `
-		CREATE TABLE events (
+		CREATE TABLE IF NOT EXISTS events (
 			event_id VARCHAR,
 			event_type VARCHAR,
 			source VARCHAR,
@@ -254,8 +237,8 @@ func ensureEventsTable(ctx context.Context, db *sql.DB) error {
 			received_at TIMESTAMP,
 			session_id VARCHAR,
 			user_id VARCHAR,
-			properties JSON,
-			meta JSON
+			properties VARCHAR,
+			meta VARCHAR
 		)
 	`
 	_, err = db.ExecContext(ctx, query)
