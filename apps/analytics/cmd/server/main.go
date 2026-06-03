@@ -1,11 +1,13 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"log/slog"
 	"os"
 	"os/signal"
 	"syscall"
+	"time"
 
 	"github.com/joho/godotenv"
 
@@ -38,28 +40,48 @@ func run(logger *slog.Logger) error {
 	if err != nil {
 		return fmt.Errorf("connect to valkey: %w", err)
 	}
-	defer valkeyClient.Close()
+	// This will now execute safely AFTER the Fiber server completely finishes draining requests
+	defer func() {
+		logger.Info("disconnecting from valkey backend pool")
+		valkeyClient.Close()
+	}()
 
 	app := api.NewHandler(valkeyClient, logger).App()
 
-	// Graceful shutdown on SIGINT / SIGTERM
-	quit := make(chan os.Signal, 1)
-	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
+	// 1. Start the Fiber engine on a background thread so it doesn't block signal interception
+	serverErrors := make(chan error, 1)
+	addr := ":" + cfg.Server.Port
 
 	go func() {
-		<-quit
-		logger.Info("shutdown signal received")
-		if err := app.Shutdown(); err != nil {
-			logger.Error("error during shutdown", "err", err)
+		logger.Info("analytics server starting", "addr", addr)
+		if err := app.Listen(addr); err != nil {
+			serverErrors <- err
 		}
 	}()
 
-	addr := ":" + cfg.Server.Port
-	logger.Info("analytics server starting", "addr", addr)
-	if err := app.Listen(addr); err != nil {
-		return fmt.Errorf("server error: %w", err)
+	// 2. Set up our main signal trap for orchestration
+	shutdownSignal := make(chan os.Signal, 1)
+	signal.Notify(shutdownSignal, syscall.SIGINT, syscall.SIGTERM)
+
+	// 3. Block execution until the server fails naturally OR we capture a termination event
+	select {
+	case err := <-serverErrors:
+		return fmt.Errorf("server unexpected runtime failure: %w", err)
+
+	case sig := <-shutdownSignal:
+		logger.Warn("lifecycle interruption event captured", "signal", sig.String())
+		logger.Info("initiating graceful shutdown; draining active request traffic")
+
+		// Enforce a hard timeout limit for the graceful shutdown phase
+		shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer cancel()
+
+		// Pass the context down to Fiber to safely wind down active listeners
+		if err := app.ShutdownWithContext(shutdownCtx); err != nil {
+			return fmt.Errorf("forced server shutdown failure: %w", err)
+		}
 	}
 
-	logger.Info("server shut down cleanly")
+	logger.Info("server HTTP listeners shut down cleanly")
 	return nil
 }

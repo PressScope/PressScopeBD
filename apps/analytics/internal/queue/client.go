@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log/slog"
+	"strconv"
 	"strings"
 	"time"
 
@@ -14,7 +15,7 @@ import (
 	"analytics/internal/config"
 )
 
-// EventMessage is the envelope written to the Valkey stream.
+// EventMessage represents the typed structure of our events.
 type EventMessage struct {
 	ID         string            `json:"id"`
 	Type       string            `json:"type"`
@@ -23,8 +24,11 @@ type EventMessage struct {
 	ReceivedAt time.Time         `json:"received_at"`
 	SessionID  string            `json:"session_id,omitempty"`
 	UserID     string            `json:"user_id,omitempty"`
-	Properties map[string]any    `json:"properties,omitempty"`
-	Meta       map[string]string `json:"meta,omitempty"`
+	
+	// Enterprise Optimization: Leave these as raw JSON bytes!
+	// This prevents parsing them into Go maps if we are just going to write text to DuckDB.
+	Properties json.RawMessage   `json:"properties,omitempty"`
+	Meta       json.RawMessage   `json:"meta,omitempty"`
 }
 
 // StreamEntry is returned when reading from the stream.
@@ -81,7 +85,6 @@ func NewClient(cfg config.ValkeyConfig, logger *slog.Logger) (*Client, error) {
 	return c, nil
 }
 
-// ensureConsumerGroup issues XGROUP CREATE MKSTREAM, ignoring "already exists".
 func (c *Client) ensureConsumerGroup(ctx context.Context) error {
 	err := c.rdb.XGroupCreateMkStream(ctx, c.cfg.StreamName, c.cfg.ConsumerGroup, "0").Err()
 	if err != nil && !strings.Contains(err.Error(), "BUSYGROUP") {
@@ -90,7 +93,7 @@ func (c *Client) ensureConsumerGroup(ctx context.Context) error {
 	return nil
 }
 
-// Publish writes an EventMessage to the Valkey stream via XADD MAXLEN ~.
+// Publish writes an EventMessage to the Valkey stream.
 func (c *Client) Publish(ctx context.Context, evt EventMessage) (string, error) {
 	payload, err := json.Marshal(evt)
 	if err != nil {
@@ -107,7 +110,7 @@ func (c *Client) Publish(ctx context.Context, evt EventMessage) (string, error) 
 			"event_type", evt.Type,
 			"source", evt.Source,
 			"occurred_at", evt.OccurredAt.UTC().Format(time.RFC3339Nano),
-			"payload", string(payload),
+			"payload", payload, // valkeycompat handles byte slices directly, saving a string conversion allocation
 		},
 	}).Result()
 
@@ -119,7 +122,7 @@ func (c *Client) Publish(ctx context.Context, evt EventMessage) (string, error) 
 	return streamID, nil
 }
 
-// Read fetches up to count new messages from the stream for this consumer.
+// Read fetches up to count new messages from the stream without deep unmarshalling payload properties.
 func (c *Client) Read(ctx context.Context, count int64, block time.Duration) ([]StreamEntry, error) {
 	results, err := c.rdb.XReadGroup(ctx, valkeycompat.XReadGroupArgs{
 		Group:    c.cfg.ConsumerGroup,
@@ -131,7 +134,7 @@ func (c *Client) Read(ctx context.Context, count int64, block time.Duration) ([]
 	}).Result()
 
 	if err != nil && (strings.Contains(err.Error(), "valkey: nil") || strings.Contains(err.Error(), "redis: nil") || strings.Contains(err.Error(), "nil message")) {
-		return nil, nil // no new messages
+		return nil, nil
 	}
 	if err != nil {
 		return nil, fmt.Errorf("xreadgroup: %w", err)
@@ -140,14 +143,22 @@ func (c *Client) Read(ctx context.Context, count int64, block time.Duration) ([]
 	var entries []StreamEntry
 	for _, stream := range results {
 		for _, msg := range stream.Messages {
-			payload, ok := msg.Values["payload"].(string)
+			// Pull payload straight into raw bytes or string
+			payloadStr, ok := msg.Values["payload"].(string)
 			if !ok {
-				c.logger.Warn("stream message missing payload", "stream_id", msg.ID)
-				continue
+				// Fallback if the driver returned it as a raw byte array slice
+				if payloadBytes, ok := msg.Values["payload"].([]byte); ok {
+					payloadStr = string(payloadBytes)
+				} else {
+					c.logger.Warn("stream message missing payload content", "stream_id", msg.ID)
+					continue
+				}
 			}
 
 			var evt EventMessage
-			if err := json.Unmarshal([]byte(payload), &evt); err != nil {
+			// This parses top-level strings/times, but keeps 'properties' and 'meta' fields 
+			// as compressed raw pointers to their locations inside the payloadStr array!
+			if err := json.Unmarshal([]byte(payloadStr), &evt); err != nil {
 				c.logger.Warn("unmarshal event failed", "stream_id", msg.ID, "err", err)
 				continue
 			}
@@ -198,7 +209,6 @@ func (c *Client) Close() {
 	c.vk.Close()
 }
 
-// redactURL hides the password in a URI for safe logging.
 func redactURL(raw string) string {
 	for i := 0; i < len(raw); i++ {
 		if raw[i] == '@' {
@@ -210,4 +220,48 @@ func redactURL(raw string) string {
 		}
 	}
 	return raw
+}
+// PublishBatch writes a slice of messages to Valkey in a single network round-trip using pipelining.
+func (c *Client) PublishBatch(ctx context.Context, evts []EventMessage) error {
+	if len(evts) == 0 {
+		return nil
+	}
+
+	cmds := make([]valkey.Completed, len(evts))
+	for i, evt := range evts {
+		payload, err := json.Marshal(evt)
+		if err != nil {
+			return fmt.Errorf("marshal event in batch: %w", err)
+		}
+
+		// Convert our max length integer to a string for the raw command args
+		maxLenStr := strconv.FormatInt(c.cfg.MaxStreamLen, 10)
+
+		// Using Arbitrary maps directly to the low-level Valkey array wire protocol.
+		// Command format: XADD <stream_name> MAXLEN ~ <count> * field value field value...
+		cmds[i] = c.vk.B().Arbitrary(
+			"XADD",
+			c.cfg.StreamName,
+			"MAXLEN",
+			"~",
+			maxLenStr,
+			"*",
+			"event_id", evt.ID,
+			"event_type", evt.Type,
+			"source", evt.Source,
+			"occurred_at", evt.OccurredAt.UTC().Format(time.RFC3339Nano),
+			"payload", string(payload),
+		).Build()
+	}
+
+	// Send all commands together in a single TCP packet over the internet
+	results := c.vk.DoMulti(ctx, cmds...)
+	for _, res := range results {
+		if err := res.Error(); err != nil {
+			return fmt.Errorf("pipeline xadd failed: %w", err)
+		}
+	}
+
+	c.logger.Debug("bulk batch pipelined to cloud valkey successfully", "count", len(evts))
+	return nil
 }
