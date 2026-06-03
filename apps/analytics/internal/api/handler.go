@@ -1,6 +1,7 @@
 package api
 
 import (
+	"encoding/json"
 	"log/slog"
 	"time"
 
@@ -13,15 +14,15 @@ import (
 	"analytics/internal/queue"
 )
 
-// IngestRequest is the body accepted by POST /events.
+// IngestRequest accepts raw JSON bytes for unstructured fields.
 type IngestRequest struct {
-	Type       string            `json:"type"`
-	Source     string            `json:"source"`
-	OccurredAt *time.Time        `json:"occurred_at,omitempty"`
-	SessionID  string            `json:"session_id,omitempty"`
-	UserID     string            `json:"user_id,omitempty"`
-	Properties map[string]any    `json:"properties,omitempty"`
-	Meta       map[string]string `json:"meta,omitempty"`
+	Type       string          `json:"type"`
+	Source     string          `json:"source"`
+	OccurredAt *time.Time      `json:"occurred_at,omitempty"`
+	SessionID  string          `json:"session_id,omitempty"`
+	UserID     string          `json:"user_id,omitempty"`
+	Properties json.RawMessage `json:"properties,omitempty"`
+	Meta       json.RawMessage `json:"meta,omitempty"`
 }
 
 // IngestResponse is returned on a successful POST /events.
@@ -121,7 +122,7 @@ func (h *Handler) IngestEvent(c *fiber.Ctx) error {
 	})
 }
 
-// IngestBatch handles POST /events/batch.
+// IngestBatch handles POST /events/batch with native Redis/Valkey pipelining.
 func (h *Handler) IngestBatch(c *fiber.Ctx) error {
 	var reqs []IngestRequest
 	if err := c.BodyParser(&reqs); err != nil {
@@ -135,15 +136,11 @@ func (h *Handler) IngestBatch(c *fiber.Ctx) error {
 		return fiber.NewError(fiber.StatusRequestEntityTooLarge, "batch limit is 500 events")
 	}
 
-	type result struct {
-		EventID  string `json:"event_id"`
-		StreamID string `json:"stream_id"`
-	}
-
-	results := make([]result, 0, len(reqs))
+	// Pre-allocate slice capacity to ensure memory packing efficiency
+	eventsToPublish := make([]queue.EventMessage, len(reqs))
 	now := time.Now().UTC()
 
-	for _, req := range reqs {
+	for i, req := range reqs {
 		if req.Type == "" {
 			return fiber.NewError(fiber.StatusUnprocessableEntity, "all events require a type field")
 		}
@@ -156,7 +153,7 @@ func (h *Handler) IngestBatch(c *fiber.Ctx) error {
 			occurredAt = req.OccurredAt.UTC()
 		}
 
-		evt := queue.EventMessage{
+		eventsToPublish[i] = queue.EventMessage{
 			ID:         uuid.NewString(),
 			Type:       req.Type,
 			Source:     req.Source,
@@ -167,20 +164,17 @@ func (h *Handler) IngestBatch(c *fiber.Ctx) error {
 			Properties: req.Properties,
 			Meta:       req.Meta,
 		}
+	}
 
-		streamID, err := h.queue.Publish(c.Context(), evt)
-		if err != nil {
-			h.logger.Error("batch publish failed", "err", err, "event_type", req.Type)
-			return fiber.NewError(fiber.StatusInternalServerError, "failed to publish event in batch")
-		}
-
-		results = append(results, result{EventID: evt.ID, StreamID: streamID})
+	// Dynamic Change: Publish entire slice in a single round-trip over the internet
+	if err := h.queue.PublishBatch(c.Context(), eventsToPublish); err != nil {
+		h.logger.Error("pipelined batch publish failed", "err", err)
+		return fiber.NewError(fiber.StatusInternalServerError, "failed to publish event batch")
 	}
 
 	return c.Status(fiber.StatusAccepted).JSON(fiber.Map{
-		"message":  "batch accepted",
-		"accepted": len(results),
-		"events":   results,
+		"message":  "batch accepted and pipelined",
+		"accepted": len(eventsToPublish),
 	})
 }
 
