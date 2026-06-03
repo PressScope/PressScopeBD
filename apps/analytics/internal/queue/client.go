@@ -130,7 +130,7 @@ func (c *Client) Read(ctx context.Context, count int64, block time.Duration) ([]
 		NoAck:    false,
 	}).Result()
 
-	if err != nil && strings.Contains(err.Error(), "redis: nil") {
+	if err != nil && (strings.Contains(err.Error(), "valkey: nil") || strings.Contains(err.Error(), "redis: nil") || strings.Contains(err.Error(), "nil message")) {
 		return nil, nil // no new messages
 	}
 	if err != nil {
