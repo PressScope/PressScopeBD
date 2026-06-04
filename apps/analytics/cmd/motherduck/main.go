@@ -353,6 +353,11 @@ func processBatch(ctx context.Context, db *sql.DB, events []queue.EventMessage, 
 }
 
 func ensureEventsTable(ctx context.Context, db *sql.DB, logger *slog.Logger) error {
+	if os.Getenv("APP_ENV") != "development" {
+		logger.Debug("skipping auto-migration: not in development mode")
+		return nil
+	}
+
 	var exists int
 	err := db.QueryRowContext(ctx, `
 		SELECT COUNT(*) 
@@ -367,7 +372,7 @@ func ensureEventsTable(ctx context.Context, db *sql.DB, logger *slog.Logger) err
 		return nil
 	}
 
-	logger.Warn("target table structure 'events' missing from schema; running ddl initialization script")
+	logger.Warn("target table structure 'events' missing from schema; running DDL initialization for development")
 	query := `
 		CREATE TABLE IF NOT EXISTS events (
 			event_id VARCHAR,
@@ -386,5 +391,6 @@ func ensureEventsTable(ctx context.Context, db *sql.DB, logger *slog.Logger) err
 		return fmt.Errorf("create table: %w", err)
 	}
 
+	logger.Info("development schema migration applied successfully")
 	return nil
 }
