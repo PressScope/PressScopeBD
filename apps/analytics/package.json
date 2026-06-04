@@ -1,0 +1,13 @@
+{
+  "name": "analytics",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "build": "go build -o ./bin/server ./cmd/server && go build -o ./bin/worker ./cmd/motherduck",
+    "dev": "sh -c 'go run ./cmd/server & go run ./cmd/motherduck; wait'",
+    "worker": "go run ./cmd/motherduck",
+    "test": "go test ./...",
+    "lint": "golangci-lint run ./...",
+    "check-types": "go build ./..."
+  }
+}
