@@ -49,3 +49,6 @@ coverage
 .cache
 tmp
 temp
+
+apps/analytics/motherduck/*.db
+apps/analytics/motherduck/duckdb
