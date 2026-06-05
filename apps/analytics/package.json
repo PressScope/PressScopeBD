@@ -1,0 +1,13 @@
+{
+  "name": "analytics",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "build": "go build -o ./bin/server ./cmd/server && go build -o ./bin/worker ./cmd/motherduck",
+    "dev": "sh -c 'cp .env.development .env 2>/dev/null || true && go run ./cmd/server & PID1=$!; go run ./cmd/motherduck & PID2=$!; wait $PID1 $PID2'",
+    "worker": "go run ./cmd/motherduck",
+    "test": "go test ./...",
+    "lint": "golangci-lint run ./...",
+    "check-types": "go build ./..."
+  }
+}

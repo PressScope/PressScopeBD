@@ -20,26 +20,22 @@ import (
 	"analytics/internal/queue"
 )
 
-// batchJob bundles the pulled data so a background worker can ingest it.
 type batchJob struct {
 	events    []queue.EventMessage
 	streamIDs []string
 	createdAt time.Time
 }
 
-// Global synchronization pools to eliminate heap allocations under extreme load
 var (
 	bufferPool = sync.Pool{
 		New: func() any { return &bytes.Buffer{} },
 	}
-	// Reuses the event message slices to prevent constant GC sweeping
 	eventSlicePool = sync.Pool{
 		New: func() any {
 			b := make([]queue.EventMessage, 0, 1000)
 			return &b
 		},
 	}
-	// Reuses the stream ID string slices
 	streamIDSlicePool = sync.Pool{
 		New: func() any {
 			s := make([]string, 0, 1000)
@@ -49,7 +45,11 @@ var (
 )
 
 func main() {
-	_ = godotenv.Load()
+	if _, err := os.Stat(".env.development"); err == nil {
+		_ = godotenv.Load(".env.development")
+	} else {
+		_ = godotenv.Load()
+	}
 
 	logger := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{
 		Level: slog.LevelDebug,
@@ -120,7 +120,6 @@ func runWithDB(ctx context.Context, db *sql.DB, valkeyClient *queue.Client, logg
 		"group", cfg.Valkey.ConsumerGroup,
 		"consumer", cfg.Valkey.ConsumerName)
 
-	// Concurrency tuning for high-throughput cloud environments
 	db.SetMaxOpenConns(15)
 	db.SetMaxIdleConns(10)
 	db.SetConnMaxLifetime(1 * time.Hour)
@@ -129,7 +128,7 @@ func runWithDB(ctx context.Context, db *sql.DB, valkeyClient *queue.Client, logg
 	jobQueue := make(chan batchJob, 10)
 	var wg sync.WaitGroup
 
-	numWorkers := 4 // Scaled out slightly to handle cloud latency variations
+	numWorkers := 4
 	logger.Info("spawning pipeline worker pool", "worker_count", numWorkers, "channel_buffer_capacity", cap(jobQueue))
 	for i := 0; i < numWorkers; i++ {
 		wg.Add(1)
@@ -142,10 +141,8 @@ func runWithDB(ctx context.Context, db *sql.DB, valkeyClient *queue.Client, logg
 	ticker := time.NewTicker(5 * time.Second)
 	defer ticker.Stop()
 
-	// Fetch pre-allocated slices from our pools right from the start
 	batchPtr := eventSlicePool.Get().(*[]queue.EventMessage)
 	streamIDsPtr := streamIDSlicePool.Get().(*[]string)
-
 	batch := *batchPtr
 	streamIDs := *streamIDsPtr
 
@@ -169,13 +166,10 @@ func runWithDB(ctx context.Context, db *sql.DB, valkeyClient *queue.Client, logg
 				} else {
 					logger.Info("synchronous backup safety flush processed successfully", "duration_ms", time.Since(start).Milliseconds())
 				}
-				// Recycle manually since it didn't pass to a worker
 				eventSlicePool.Put(&batch)
 				streamIDSlicePool.Put(&streamIDs)
 			}
 
-			// Rent completely fresh slices from the pool for the next collection sequence
-			// This completely bypasses the runtime slice append reallocations.
 			batchPtr = eventSlicePool.Get().(*[]queue.EventMessage)
 			streamIDsPtr = streamIDSlicePool.Get().(*[]string)
 			batch = (*batchPtr)[:0]
@@ -248,7 +242,6 @@ func workerLoop(ctx context.Context, db *sql.DB, valkeyClient *queue.Client, job
 				"total_ingest_duration_ms", time.Since(start).Milliseconds())
 		}
 
-		// Enterprise Recycling: Return slices to pools once processing and ACKs are complete
 		eventSlicePool.Put(&job.events)
 		streamIDSlicePool.Put(&job.streamIDs)
 	}
@@ -260,7 +253,6 @@ func processBatch(ctx context.Context, db *sql.DB, events []queue.EventMessage, 
 		return nil
 	}
 
-	// Borrow buffer from global pool to minimize garbage collections (GC)
 	buf := bufferPool.Get().(*bytes.Buffer)
 	buf.Reset()
 	defer bufferPool.Put(buf)
@@ -291,7 +283,6 @@ func processBatch(ctx context.Context, db *sql.DB, events []queue.EventMessage, 
 		for _, evt := range events {
 			var propsStr, metaStr string
 
-			// Serialize properties using pooled buffer
 			serializationStart := time.Now()
 			buf.Reset()
 			if err := enc.Encode(evt.Properties); err == nil {
@@ -300,7 +291,6 @@ func processBatch(ctx context.Context, db *sql.DB, events []queue.EventMessage, 
 				propsStr = "{}\n"
 			}
 
-			// Serialize meta using pooled buffer
 			buf.Reset()
 			if err := enc.Encode(evt.Meta); err == nil {
 				metaStr = buf.String()
@@ -353,6 +343,11 @@ func processBatch(ctx context.Context, db *sql.DB, events []queue.EventMessage, 
 }
 
 func ensureEventsTable(ctx context.Context, db *sql.DB, logger *slog.Logger) error {
+	if os.Getenv("APP_ENV") != "development" {
+		logger.Debug("skipping auto-migration: not in development mode")
+		return nil
+	}
+
 	var exists int
 	err := db.QueryRowContext(ctx, `
 		SELECT COUNT(*) 
@@ -367,7 +362,7 @@ func ensureEventsTable(ctx context.Context, db *sql.DB, logger *slog.Logger) err
 		return nil
 	}
 
-	logger.Warn("target table structure 'events' missing from schema; running ddl initialization script")
+	logger.Warn("target table structure 'events' missing from schema; running DDL initialization for development")
 	query := `
 		CREATE TABLE IF NOT EXISTS events (
 			event_id VARCHAR,
@@ -386,5 +381,6 @@ func ensureEventsTable(ctx context.Context, db *sql.DB, logger *slog.Logger) err
 		return fmt.Errorf("create table: %w", err)
 	}
 
+	logger.Info("development schema migration applied successfully")
 	return nil
 }
