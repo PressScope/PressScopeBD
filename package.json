@@ -8,6 +8,8 @@
   "type": "module",
   "scripts": {
     "dev": "turbo dev",
+    "dev:analytics": "turbo dev",
+    "dev:analytics:worker": "pnpm --filter analytics run worker",
     "build": "turbo build",
     "check-types": "turbo check-types",
     "dev:web": "turbo -F web dev",
